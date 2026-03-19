@@ -23,8 +23,3 @@ allprojects {
 apply plugin: "expo-root-project"
 apply plugin: "com.facebook.react.rootproject"
 
-// Override NDK after expo-root-project sets it (runs last due to registration order)
-afterEvaluate {
-    ext.ndkVersion = "27.0.12077973"
-}
-

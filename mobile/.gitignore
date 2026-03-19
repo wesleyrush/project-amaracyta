@@ -1,6 +1,6 @@
-node_modules/ 
-android/.gradle 
-android/app/build 
-android/build 
-android/build 
-.expo 
+node_modules/
+android/.gradle/
+android/app/build/
+android/build/
+.expo/
+ios/
