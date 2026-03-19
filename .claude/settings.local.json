@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/Scripts/python.exe -m alembic upgrade head)",
+      "Bash(.venv/Scripts/alembic.exe upgrade head)",
+      "Bash(.venv/Scripts/python.exe -c \"import alembic; print\\(alembic.__file__\\)\")",
+      "Bash(.venv/Scripts/python.exe -c \"import alembic.config; alembic.config.main\\(argv=[''upgrade'', ''head'']\\)\")",
+      "Bash(pip show alembic)",
+      "Bash(.venv/Scripts/pip.exe list)",
+      "Bash(.venv/Scripts/pip.exe install alembic)",
+      "Bash(.venv/Scripts/python.exe apply_migration_003.py)",
+      "Bash(.venv/Scripts/python.exe -c \":*)",
+      "Bash(npm install sweetalert2)",
+      "Bash(npm list sweetalert2)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(ls -la /c/Projetos/project-amaracyta/backend-agent/*.py)",
+      "Bash(xargs ls -la)",
+      "Bash(\"c:\\\\Projetos\\\\project-amaracyta\\\\frontend-admin\\\\src\\\\styles\\\\admin.css\")",
+      "Bash(npm install multer)",
+      "Bash(\"c:/Projetos/project-amaracyta/Data-Base-Update.sql\":*)",
+      "Bash(dir \"C:\\\\Users\\\\Wesley Sousa\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\ndk\"\" 2>/dev/null || echo \"NOT FOUND \")",
+      "WebFetch(domain:expo.dev)",
+      "WebFetch(domain:expo.fyi)",
+      "WebFetch(domain:github.com)"
+    ]
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "Amaracytã",
+    "slug": "amaracyta-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#0b0c0f"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.amaracyta.mobile"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0b0c0f"
+      },
+      "package": "com.amaracyta.mobile"
+    },
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "c354dec9-0e0e-43e7-9739-30a44c03348f"
+      }
+    }
+  }
+}

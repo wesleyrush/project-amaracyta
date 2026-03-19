@@ -1,0 +1,18 @@
+# Habilita reescrita
+RewriteEngine On
+RewriteBase /
+
+# Deixa os arquivos estáticos passarem direto
+RewriteRule ^assets/ - [L]
+
+# Se não for arquivo nem diretório real, volta para index.html
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /index.html [L]
+
+# (Opcional) Cache longo para assets versionados do Vite
+<IfModule mod_headers.c>
+  <FilesMatch "\.(js|css|woff2?|png|jpg|jpeg|svg|gif)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+</IfModule>

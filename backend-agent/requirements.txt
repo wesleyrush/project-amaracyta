@@ -1,0 +1,44 @@
+pytz==2024.1
+python-dotenv==1.0.1
+streamlit==1.39.0
+
+# LangChain e integrações
+langchain==0.3.7
+langchain-core==0.3.19
+langchain-xai==0.1.0
+#langchain-openai==0.2.13
+
+# Hugging Face
+transformers==4.47.1
+huggingface_hub==0.27.0
+sentence-transformers==3.3.1
+
+# Modelagem de dados
+pydantic==2.7.4
+
+# OpenAI
+openai==1.55.3
+
+# Outros utilitários
+ipykernel
+jinja2==3.1.4
+pypdf==5.1.0
+yt_dlp
+pydub
+audioop-lts; python_version>="3.13"
+beautifulsoup4==4.12.3
+faiss-cpu==1.13.2
+lark==1.2.2
+
+fastapi
+uvicorn[standard]
+python-dotenv
+sqlalchemy
+pymysql
+python-jose[cryptography]
+sse-starlette
+langchain-xai
+pydantic
+pydantic[email]
+passlib[bcrypt]==1.7.4
+bcrypt==4.3.0

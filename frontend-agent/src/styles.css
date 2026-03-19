@@ -1,0 +1,3604 @@
+:root {
+  --bg: #0b0c0f;
+  --panel: #101218;
+  --panel-2: #0d0f14;
+  --text: #e8e9eb;
+  --muted: #a9b0bb;
+  --accent: #5697ff;
+  --danger: #ef4444;
+  --ring-outer: rgba(86,151,255,.18);
+  --ring-inner: rgba(86,151,255,.45);
+  --radius: 14px;
+  --shadow: 0 10px 32px rgba(0,0,0,.45);
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+html { color-scheme: dark; }
+body {
+  margin: 0;
+  background:
+    radial-gradient(1200px 800px at 75% -10%, #1a2740 0%, rgba(26,39,64,.2) 40%, transparent 60%),
+    linear-gradient(180deg, #0b0c0f 0%, #0a0b0e 100%);
+  color: var(--text);
+  font: 16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+}
+
+/* ====== layout base ====== */
+.app-shell {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  grid-template-rows: 100dvh;
+  transition: grid-template-columns .25s ease;
+}
+/* estado colapsado */
+.app-shell.sidebar-collapsed { grid-template-columns: 68px 1fr; }
+#sidebarToggle{
+  display: none; /* escondido por padrão, aparece no hover */
+}
+/* ====== botão flutuante de toggle ====== */
+.sidebar-toggle {
+  position: fixed;
+  top: 12px; left: 12px; z-index: 80;
+  width: 40px; height: 40px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: #1b1f26;
+  color: #d8dee9;
+  display: grid; place-items: center;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0,0,0,.4);
+}
+.sidebar-toggle:hover { filter: brightness(1.1); }
+
+/* ====== sidebar ====== */
+.sidebar {
+  background: var(--panel);
+  border-right: 1px solid rgba(255,255,255,.07);
+  display: grid;
+  grid-template-rows: auto auto 1fr auto; /* header, ações, lista, footer */
+  transition: width .25s ease, transform .25s ease, opacity .2s ease;
+}
+.side-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px;
+  padding: 12px;
+  border-bottom: 1px solid rgba(255,255,255,.07);
+}
+.brand { display: inline-flex; align-items: center; gap: 8px; }
+.logo { font-size: 20px; }
+.brand-title { white-space: nowrap; }
+.side-actions {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255,255,255,.07);
+}
+.new-conv {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.new-conv:hover { filter: brightness(1.08); }
+.conv-section { padding: 10px 8px; overflow: auto; }
+.section-title { color: var(--muted); margin: 2px 6px 8px 6px; font-size: 13px; }
+.conv-list { overflow: auto; padding-right: 4px; min-height: 350px;}
+#conversations { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px;  }
+.conv-item a {
+  display: block;
+  padding: 10px 12px;
+  background: #0f141c;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 10px;
+  color: var(--text);
+  text-decoration: none;
+}
+.conv-item .conv-title { font-weight: 600; }
+.conv-item .conv-preview { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.conv-item.active a {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--ring-outer);
+}
+.side-footer {
+  padding: 10px;
+  border-top: 1px solid rgba(255,255,255,.07);
+  display: grid; gap: 8px;
+}
+.api-url { display: grid; gap: 4px; }
+.api-url input {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+.btn {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 8px;
+  padding: 8px 12px; cursor: pointer;
+}
+.btn.danger {
+  background: #2b0f12; border-color: #44141a; color: #ffb4b4;
+}
+
+/* ====== main (chat) ====== */
+.main { display: grid; grid-template-rows: auto 1fr auto; }
+.topbar { padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,.07); }
+.chat-area { overflow: auto; padding: 16px; }
+/* ===== Chat layout "padrão" ===== */
+
+
+/* A lista continua em coluna, com espaçamento entre mensagens */
+
+.messages {
+  list-style: none;
+  margin: 0; 
+  padding: 0 10px 0 10px;
+  display: grid;
+  gap: 10px;
+  max-width: 900px;
+  overflow: auto!important;
+}
+
+/* Cada mensagem agora é um bloco simples (sem grid de avatar) */
+.message {
+  display: block;
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+/* Remover/ocultar avatar antigo se ainda for renderizado por HTML legado */
+.message .avatar { display: none !important; }
+
+/* Bolha base */
+.message .bubble {
+  display: block;
+  white-space: pre-wrap;           /* respeita quebras do modelo */
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: #0f131b;            /* base dark */
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.03);
+}
+
+/* ===== Usuário (direita) ===== */
+.message.user {
+  display: flex;
+  justify-content: flex-end;       /* joga a bolha para a direita */
+}
+.message.user .bubble {
+  background: #152235;             /* tom azulado para diferenciar */
+  border-color: rgba(86,151,255,.35);
+  max-width: min(72ch, 80%);       /* limita a largura para boa leitura */
+  margin-left: auto;               /* garante alinhamento à direita */
+  text-align: left;                /* mantém leitura natural */
+  border-top-right-radius: 6px;    /* leve assimetria opcional */
+}
+
+/* ===== Agente (esquerda / 100% justificado) ===== */
+.message.assistant {
+  display: block;
+}
+.message.assistant .bubble {
+  width: 100%;                     /* ocupa toda a largura da coluna */
+  max-width: none;
+  background: #0b1220;             /* tom sutil para o agente */
+  border-color: rgba(255,255,255,.06);
+  text-align: justify;             /* seu pedido: texto justificado */
+  hyphens: auto;                   /* hifenização automática quando suportado */
+  border-top-left-radius: 6px;
+}
+.message.assistant .bubble {
+  line-height: 1.55;
+  letter-spacing: .005em;
+}
+/* Remover qualquer “filete” lateral antigo usado como marcador */
+.message.user,
+.message.assistant { border-left: 0 !important; }
+.message.assistant .bubble {
+  text-align: justify;
+  text-justify: inter-word;
+}
+.message.assistant .bubble p:only-child { text-align: left; /* se for um parágrafo único curtinho, não justifica */ }
+/* (Opcional) Espaço vertical extra antes de blocos muito longos do agente */
+.message.assistant + .message.assistant .bubble { margin-top: 2px; }
+
+/* (Opcional) Tipografia para Markdown do agente */
+.message.assistant .bubble h1,
+.message.assistant .bubble h2,
+.message.assistant .bubble h3 { margin: 0 0 8px 0; }
+.message.assistant .bubble p { margin: 0 0 10px 0; }
+.message.assistant .bubble ul,
+.message.assistant .bubble ol { margin: 8px 0 10px 22px; }
+.message.assistant .bubble a {
+  color: var(--accent, #5697ff);
+  text-decoration: underline;
+}
+/* ===== Markdown dentro das bolhas do AGENTE ===== */
+.message.assistant .bubble { line-height: 1.58; text-align: justify; hyphens: auto; }
+/* Conteúdo markdown (usei seletor amplo) */
+.message.assistant .bubble h1,
+.message.assistant .bubble h2,
+.message.assistant .bubble h3,
+.message.assistant .bubble h4 {
+  margin: 0 0 8px 0;
+  line-height: 1.25;
+}
+.message.assistant .bubble h1 { font-size: 1.5rem; }
+.message.assistant .bubble h2 { font-size: 1.35rem; }
+.message.assistant .bubble h3 { font-size: 1.2rem; }
+.message.assistant .bubble h4 { font-size: 1.1rem; }
+.message.assistant .bubble p { margin: 0 0 10px 0; }
+.message.assistant .bubble strong { font-weight: 700; }
+.message.assistant .bubble em { font-style: italic; }
+.message.assistant .bubble ul,
+.message.assistant .bubble ol { margin: 8px 0 10px 22px; }
+.message.assistant .bubble blockquote {
+  margin: 10px 0;
+  padding: 8px 12px;
+  border-left: 3px solid rgba(86,151,255,.55);
+  background: rgba(86,151,255,.06);
+  color: #dfe6f0;
+  border-radius: 6px;
+}
+.message.assistant .bubble code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  background: #0f141c;
+  border: 1px solid rgba(255,255,255,.08);
+  padding: 1px 5px;
+  border-radius: 6px;
+}
+.message.assistant .bubble pre {
+  background: #0a0f17;
+  border: 1px solid rgba(255,255,255,.12);
+  padding: 12px;
+  overflow: auto;
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.03);
+}
+.message.assistant .bubble pre code { background: transparent; border: 0; padding: 0; }
+.message.assistant .bubble hr {
+  border: 0;
+  border-top: 1px dashed rgba(255,255,255,.15);
+  margin: 12px 0;
+}
+.message.assistant .bubble a { color: var(--accent, #5697ff); text-decoration: underline; text-underline-offset: 2px; }
+/* Tabelas no dark */
+.message.assistant .bubble table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 0.95rem; }
+.message.assistant .bubble th, .message.assistant .bubble td { border: 1px solid rgba(255,255,255,.12); padding: 6px 8px; }
+.message.assistant .bubble th { background: #121722; font-weight: 600; }
+
+/* ====== composer ====== */
+.composer-wrap { padding: 12px 16px; border-top: 1px solid rgba(255,255,255,.07); background: linear-gradient(180deg, rgba(10,12,16,.7), rgba(10,12,16,.9)); backdrop-filter: blur(10px); }
+.composer { max-width: 900px; margin: 0; display: grid; grid-template-columns: 1fr auto; gap: 10px; }
+#prompt {
+  width: 100%; min-height: 48px; max-height: 220px;
+  background: var(--panel-2); color: var(--text);
+  border: 1px solid rgba(255,255,255,.12); border-radius: 12px;
+  padding: 12px 14px; outline: none; resize: none; caret-color: var(--accent);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.03);
+}
+#prompt:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--ring-outer), 0 0 0 1.5px var(--ring-inner) inset, inset 0 0 0 1px rgba(255,255,255,.06);
+}
+.actions-right { display: inline-flex; align-items: center; gap: 8px; }
+.send-btn {
+  width: 40px; height: 40px; border: none; border-radius: 12px;
+  background: linear-gradient(180deg, #7fb2ff, #4d87ff); color: #041225; cursor: pointer;
+  box-shadow: 0 6px 18px rgba(77,135,255,.35), inset 0 0 0 1px rgba(255,255,255,.25);
+}
+
+/* ====== status dot ====== */
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 999px; }
+.dot-idle { background: #22c55e; }
+.dot-busy { background: #fbbf24; }
+.dot-error{ background: #ef4444; }
+
+/* ====== colapso: esconder textos e encolher ====== */
+.app-shell.sidebar-collapsed .brand-title,
+.app-shell.sidebar-collapsed .new-conv span,
+.app-shell.sidebar-collapsed .section-title,
+.app-shell.sidebar-collapsed .conv-preview,
+.app-shell.sidebar-collapsed .api-url,
+.app-shell.sidebar-collapsed #saveApi { display: none; }
+.app-shell.sidebar-collapsed .sidebar { overflow: hidden; }
+.app-shell.sidebar-collapsed .conv-item a { padding: 10px; }
+
+/* ====== overlay para telas pequenas ====== */
+@media (max-width: 960px) {
+  .app-shell { grid-template-columns: 1fr; }
+  .sidebar {
+    position: fixed; inset: 0 auto 0 0; width: 280px; z-index: 70;
+    transform: translateX(-100%); /* escondido por padrão */
+  }
+  .app-shell.sidebar-open .sidebar { transform: translateX(0); }
+  .sidebar-toggle { z-index: 90; } /* sempre por cima */
+}
+/* Botão toggle padrão */
+.sidebar-toggle {
+  position: fixed;
+  top: 22px;
+  left: 12px;            /* posição quando sidebar está colapsada ou em telas pequenas */
+  z-index: 90;
+  width: 40px; height: 40px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: #1b1f26;
+  color: #d8dee9;
+  display: grid; place-items: center;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0,0,0,.4);
+}
+/* 👉 Quando a sidebar está aberta em DESKTOP, empurre o botão para a direita */
+@media (min-width: 961px) { .app-shell.sidebar-open .sidebar-toggle { left: 243px; } }
+/* Em telas pequenas (overlay), mantemos o botão no canto esquerdo */
+@media (max-width: 960px) { .app-shell .sidebar-toggle { left: 12px; } }
+
+.conv-link { display: block; cursor: pointer; }
+.conv-link:hover { filter: brightness(1.08); }
+.conv-item.active .conv-link {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--ring-outer);
+}
+/* ===== Header da sidebar (com título acima e ações à direita) ===== */
+.side-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; padding: 12px; border-bottom: 1px solid rgba(255,255,255,.07);
+}
+.side-header-left { display: grid; gap: 6px; }
+.side-title { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.brand { display: inline-flex; align-items: center; gap: 8px; }
+.side-header-actions { display: inline-flex; align-items: center; gap: 8px; }
+
+/* Botão “ghost” (ícone hambúrguer no cabeçalho) */
+.icon-btn.ghost {
+  width: 36px; height: 36px; display: grid; place-items: center;
+  border-radius: 10px; border: 1px solid rgba(255,255,255,.12);
+  background: transparent; color: var(--text); cursor: pointer;
+}
+.icon-btn.ghost:hover { background: rgba(255,255,255,.06); }
+
+/* ===== Itens de conversa com ações ===== */
+.conv-item { position: relative;}
+.conv-link {
+  display: block; cursor: pointer;
+  padding: 12px; background: #0f141c;
+  border: 1px solid rgba(255,255,255,.08); border-radius: 10px;
+  color: var(--text); text-decoration: none;
+}
+.conv-item .conv-title { font-weight: 600; }
+.conv-item .conv-preview { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.conv-item.active .conv-link { border-color: var(--accent); box-shadow: 0 0 0 2px var(--ring-outer); }
+.conv-actions {
+  position: absolute; top: 8px; right: 8px;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.conv-more {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: #151a21; color: var(--text);
+  border: 1px solid rgba(255,255,255,.12);
+  display: grid; place-items: center; cursor: pointer;
+}
+.conv-more:hover { filter: brightness(1.1); }
+
+/* Menu “⋯” */
+.conv-menu {
+  position: absolute; right: 8px; top: 40px; z-index: 20;
+  min-width: 160px; display: none; /* abre via .menu-open */
+  background: #161b22; border: 1px solid rgba(255,255,255,.12);
+  border-radius: 10px; box-shadow: 0 10px 22px rgba(0,0,0,.35);
+  overflow: hidden;
+}
+.conv-menu .menu-item {
+  width: 100%; text-align: left;
+  padding: 10px 12px; background: transparent;
+  border: none; color: var(--text); cursor: pointer;
+  display: grid; grid-template-columns: 18px 1fr; gap: 10px; align-items: center;
+}
+.conv-menu .menu-item:hover { background: rgba(255,255,255,.06); }
+.conv-menu .menu-item.delete { color: #ffb4b4; }
+
+/* Abre o menu quando o item tem a classe menu-open */
+.conv-item.menu-open .conv-menu { display: grid; }
+
+/* Título do card: linha superior com módulo + data */
+.conv-title-top {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 4px; margin-bottom: 2px;
+}
+.conv-date {
+  font-size: 10px; color: var(--muted); font-weight: 400;
+  white-space: nowrap; flex-shrink: 0;
+}
+.conv-title-text { display: block; font-weight: 600; font-size: 13px; line-height: 1.4; }
+.conv-person-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--muted);
+  margin-bottom: 1px;
+}
+.conv-person-badge.child { color: #a78bfa; }
+.conv-person-badge.self  { color: var(--muted); }
+
+/* Botão "Ver todas" no final da lista */
+.conv-see-all-btn {
+  display: block; width: 100%; margin-top: 8px;
+  padding: 8px 12px; background: transparent;
+  border: 1px dashed rgba(255,255,255,.15); border-radius: 8px;
+  color: var(--muted); font-size: 12px; cursor: pointer; text-align: center;
+  transition: background .15s, color .15s;
+}
+.conv-see-all-btn:hover { background: rgba(255,255,255,.05); color: var(--text); }
+
+/* Dialog "Todas as conexões" */
+.all-sessions-dialog {
+  position: fixed; inset: 0; margin: auto;
+  width: min(860px, 96vw); max-height: 90vh;
+  background: #0f141c; color: var(--text);
+  border: 1px solid rgba(255,255,255,.12); border-radius: 14px;
+  box-shadow: 0 24px 60px rgba(0,0,0,.6); padding: 0;
+  overflow: hidden;
+}
+.all-sessions-dialog::backdrop { background: rgba(0,0,0,.55); }
+.asd-inner { display: flex; flex-direction: column; height: 100%; max-height: 90vh; }
+.asd-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,.1); flex-shrink: 0;
+}
+.asd-head h3 { margin: 0; font-size: 16px; font-weight: 700; }
+.asd-close {
+  width: 32px; height: 32px; border-radius: 8px; background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.1); color: var(--text); cursor: pointer; font-size: 14px;
+}
+.asd-close:hover { background: rgba(255,255,255,.12); }
+.asd-table-wrap { overflow-y: auto; flex: 1; padding: 0 4px 12px; }
+.asd-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.asd-table thead th {
+  padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 600;
+  color: var(--muted); text-transform: uppercase; letter-spacing: .05em;
+  border-bottom: 1px solid rgba(255,255,255,.08); position: sticky; top: 0;
+  background: #0f141c;
+}
+.asd-table tbody tr { border-bottom: 1px solid rgba(255,255,255,.05); }
+.asd-table tbody tr:last-child { border-bottom: none; }
+.asd-table tbody td { padding: 10px 12px; vertical-align: middle; }
+.asd-table tbody tr:hover { background: rgba(255,255,255,.03); }
+.asd-row-active { background: rgba(86,151,255,.07) !important; }
+.asd-date { white-space: nowrap; color: var(--muted); font-size: 12px; }
+.asd-title { max-width: 220px; }
+.asd-person { white-space: nowrap; font-size: 12px; }
+.asd-coins { font-size: 12px; white-space: nowrap; }
+.asd-coins-empty { color: var(--muted); }
+.asd-open-btn {
+  padding: 5px 14px; border-radius: 7px; font-size: 12px; font-weight: 600; cursor: pointer;
+  background: var(--accent); color: #fff; border: none; white-space: nowrap;
+}
+.asd-open-btn:hover { filter: brightness(1.1); }
+.asd-open-btn-active { background: rgba(255,255,255,.12); color: var(--text); }
+.asd-open-btn-active:hover { filter: none; background: rgba(255,255,255,.18); }
+
+/* Light theme overrides */
+[data-theme="light"] .all-sessions-dialog {
+  background: #fff; border-color: #e5e7eb;
+  box-shadow: 0 24px 60px rgba(0,0,0,.2);
+}
+[data-theme="light"] .asd-head { border-color: #e5e7eb; }
+[data-theme="light"] .asd-table thead th { background: #fff; border-color: #e5e7eb; }
+[data-theme="light"] .asd-table tbody tr { border-color: #f3f4f6; }
+[data-theme="light"] .asd-table tbody tr:hover { background: #f9fafb; }
+[data-theme="light"] .asd-row-active { background: #eff6ff !important; }
+[data-theme="light"] .conv-see-all-btn { border-color: #d1d5db; color: #6b7280; }
+[data-theme="light"] .conv-see-all-btn:hover { background: #f3f4f6; color: #1a1d23; }
+
+/* ===== Tamanhos e overlay em telas pequenas permanece o mesmo ===== */
+/* O link ocupa o cartão inteiro e recebe o clique */
+.conv-link {
+  position: relative;
+  display: block;
+  padding: 12px;
+  background: #0f141c;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 10px;
+  color: var(--text);
+  text-decoration: none;
+  z-index: 1;              /* <- fica acima do fundo */
+}
+/* O botão ⋯ ocupa só o cantinho e não cobre o link */
+.conv-actions {
+  position: absolute;
+  top: 8px; right: 8px;
+  z-index: 2;              /* acima do link, mas só na área do botão */
+  pointer-events: auto;
+}
+/* O menu abre acima do link, mas não “escuda” o card todo */
+.conv-menu {
+  position: absolute;
+  right: 8px; top: 40px;
+  z-index: 3;
+  min-width: 160px;
+  display: none;
+  background: #161b22;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 10px;
+  box-shadow: 0 10px 22px rgba(0,0,0,.35);
+}
+.conv-item.menu-open .conv-menu { display: grid; }
+
+/* herda a cor (use a variável do seu tema) */
+.akasha-icon {
+  color: var(--accent, #5697ff);
+  display: inline-block;
+  vertical-align: middle;
+  filter: drop-shadow(0 0 8px rgba(86,151,255,.18));
+}
+/* brilho “respiração” (opcional) */
+.q-pulse { animation: qPulse 2s ease-in-out infinite; }
+@keyframes qPulse {
+  0%,100% { opacity: 1;   transform: scale(1); }
+  50%     { opacity: .92; transform: scale(1.03); }
+}
+
+/* ===== Centralização da coluna de chat ===== */
+:root { --chat-max: 900px; /* ajuste para 960px, 820px... se quiser */ }
+/* Título (topbar) centralizado na mesma coluna das mensagens */
+.topbar { display: flex; justify-content: flex-start; padding-inline: 16px; }
+.topbar #convTitle { width: 100%; max-width: var(--chat-max); margin: 0; }
+/* Área das mensagens centralizada */
+.chat-area { display: flex; justify-content: center; padding: 16px; padding-bottom: 120px; }
+/* A grade de mensagens vira a “coluna” central */
+.messages { margin: 0 auto; width: 100%; max-width: var(--chat-max); }
+/* Mantém o comportamento novo: user à direita, agente 100% da coluna */
+.message.user .bubble { max-width: min(72ch, 80%); margin-left: auto; }
+.message.assistant .bubble { width: 100%; max-width: none; }
+/* Composer centralizado sob a mesma largura */
+.composer-wrap { display: flex; justify-content: center; padding: 12px 16px; }
+.composer { width: 100%; max-width: var(--chat-max); margin-inline: auto; grid-template-columns: 1fr auto; }
+/* Em telas menores, a coluna ocupa 100% */
+@media (max-width: 720px) { :root { --chat-max: 100%; } .message.user .bubble { max-width: 90%; } }
+
+/* ---------- Padroniza white-space para cada tipo de bolha ---------- */
+.message.user .bubble { white-space: pre-wrap; }
+.message.assistant .bubble { white-space: normal; padding: 10px 14px; }
+/* Se quiser mesmo valor nas duas bolhas, force aqui */
+.message .bubble { padding: 10px 14px !important; }
+/* ---------- Ritmo vertical do conteúdo Markdown ---------- */
+.message.assistant .bubble > :where(p, ul, ol, pre, blockquote, h1, h2, h3, h4, table, hr) { margin: 0 0 10px 0; }
+.message.assistant .bubble > :where(p, ul, ol, pre, blockquote, h1, h2, h3, h4, table, hr):last-child { margin-bottom: 0 !important; }
+.message.assistant .bubble p:empty,
+.message.assistant .bubble h1:empty,
+.message.assistant .bubble h2:empty,
+.message.assistant .bubble h3:empty,
+.message.assistant .bubble h4:empty { display: none !important; }
+.message.assistant .bubble br:last-child { display: none !important; }
+.message.assistant .bubble pre:last-child { margin-bottom: 0 !important; }
+
+/* ===== Edição inline do título na sidebar ===== */
+.conv-item.editing .conv-link { pointer-events: none; }
+.conv-item.editing .conv-preview { display: none; }
+.conv-title-edit {
+  width: 100%;
+  height: 32px;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 8px;
+  padding: 6px 8px;
+  background: #0d0f14;
+  color: var(--text);
+  outline: none;
+  font: inherit;
+  box-shadow:
+    0 0 0 3px rgba(86,151,255,.18),
+    inset 0 0 0 1px rgba(255,255,255,.06);
+}
+.conv-title-edit::placeholder { color: var(--muted); }
+.conv-title { cursor: text; }
+/* ----- Edição inline: permita interação no link enquanto edita ----- */
+.conv-item.editing .conv-link { pointer-events: auto; cursor: text; position: relative; z-index: 1; }
+.conv-title-edit { position: relative; z-index: 5; }
+.conv-item.editing .conv-actions, .conv-item.editing .conv-menu { pointer-events: none; opacity: .4; }
+/* NÃO esticar a bolha na vertical */
+.messages { align-items: start; }
+/* Usuário: flex para alinhar à direita, porém sem stretch vertical */
+.message.user { display: flex; justify-content: flex-end; align-items: flex-start; }
+/* Garante que a própria bolha use apenas a altura do conteúdo */
+.message.user .bubble { align-self: flex-start; min-height: auto; }
+/* Chips à direita, opcionais */
+.message { position: relative; }
+.message .reply-chip, .message .action-chip { position: absolute; right: 0; top: 0; }
+
+/* ======================================================= */
+/* ======= PATCH MESCLADO (MODO CARD + AUTH) ============= */
+/* ======================================================= */
+
+/* === MODO "CARD" PARA O AGENTE + TIPOGRAFIA REFORÇADA === */
+.card-agent .message.assistant .bubble {
+  max-width: min(72ch, 80%);
+  width: auto;
+  margin-left: 0;
+  margin-right: auto;
+  box-shadow:
+    0 8px 26px rgba(0,0,0,.28),
+    inset 0 0 0 1px rgba(255,255,255,.03);
+}
+/* Mantém o usuário coerente */
+.card-agent .message.user .bubble { max-width: min(64ch, 75%); }
+/* Títulos reforçados dentro da bolha do agente */
+.card-agent .message.assistant .bubble h1 {
+  font-size: clamp(1.6rem, 2.2vw, 2.1rem);
+  line-height: 1.25;
+  margin: 0 0 10px 0;
+  letter-spacing: .005em;
+}
+.card-agent .message.assistant .bubble h2 {
+  font-size: clamp(1.4rem, 2vw, 1.8rem);
+  line-height: 1.28;
+  margin: 12px 0 8px 0;
+}
+.card-agent .message.assistant .bubble h3 {
+  font-size: clamp(1.18rem, 1.6vw, 1.4rem);
+  line-height: 1.3;
+  margin: 10px 0 6px 0;
+}
+/* Ritmo levemente mais solto */
+.card-agent .message.assistant .bubble p { margin: 0 0 12px 0; }
+.card-agent .message.assistant .bubble ul,
+.card-agent .message.assistant .bubble ol { margin: 10px 0 12px 26px; }
+/* Chips/CTAs na bolha */
+.card-agent .message.assistant .bubble .chip,
+.card-agent .message.assistant .bubble .btn-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 12px; border-radius: 999px;
+  background: #152235; border: 1px solid rgba(86,151,255,.35);
+  color: var(--text); text-decoration: none; cursor: pointer;
+}
+.card-agent .message.assistant .bubble .chip:hover,
+.card-agent .message.assistant .bubble .btn-chip:hover { filter: brightness(1.06); }
+@media (min-width: 961px) { .card-agent .composer { max-width: 820px; } }
+
+/* ==========  AUTH (Login / Registro)  ========== */
+.auth-card {
+  max-width: 420px;
+  margin: 0vh auto;
+  padding: 20px;
+  background: var(--panel);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+.auth-card h1 { margin: 0 0 12px 0; }
+.auth-card form { display: grid; gap: 10px; }
+.auth-card input {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.auth-card .btn-primary {
+  background: linear-gradient(180deg, #7fb2ff, #4d87ff);
+  color: #041225;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+/* Auth form layout helpers */
+.auth-card {
+  max-width: 480px; /* ligeiramente mais largo para o form novo */
+}
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.auth-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.auth-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.auth-req  { color: #ef4444; margin-left: 2px; }
+.auth-opt  { font-weight: 400; font-size: 12px; color: var(--muted); opacity: .7; }
+.auth-hint { font-weight: 400; font-size: 12px; color: var(--muted); opacity: .7; }
+.auth-err  { color: #fca5a5 !important; margin-top: 4px; }
+
+/* Profile form layout helpers */
+.profile-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.profile-req  { color: #ef4444; margin-left: 2px; font-size: 13px; }
+.profile-opt  { font-weight: 400; font-size: 12px; color: var(--muted); opacity: .7; }
+.profile-hint { font-weight: 400; font-size: 12px; color: var(--muted); opacity: .7; }
+
+.muted { color: var(--muted); font-size: 13px; }
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  position: relative;
+}
+.topbar-right {
+  position: absolute;
+  right: 12px; top: 8px;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.user-menu {
+  position: absolute; right: 0; top: 52px; z-index: 50;
+  min-width: 210px;
+  background: #161b22; border: 1px solid rgba(255,255,255,.12);
+  border-radius: 12px; box-shadow: 0 10px 28px rgba(0,0,0,.4); padding: 6px;
+}
+.user-menu[hidden] { display: none; }
+.user-menu button {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; text-align: left; padding: 9px 12px; background: transparent;
+  border: none; color: var(--text); cursor: pointer; border-radius: 8px; font-size: 14px;
+}
+.user-menu button:hover { background: rgba(255,255,255,.06); }
+.user-menu button.danger { color: #ffb4b4; }
+
+/* Dialogs */
+.form-dialog { display: grid; gap: 10px; min-width: 320px; }
+.form-dialog label { display: grid; gap: 6px; font-size: 14px; }
+.form-dialog input {
+  background: var(--panel-2); color: var(--text);
+  border: 1px solid rgba(255,255,255,.12); border-radius: 8px; padding: 8px 10px;
+}
+/* Mantém a Main com cabeçalho, conteúdo e rodapé */
+.main { display: grid; grid-template-rows: auto 1fr auto; }
+
+/* Área das mensagens centralizada */
+:root { --chat-max: 900px; }
+.chat-area { display: flex; justify-content: center; padding: 16px; padding-bottom: 120px; }
+.messages { margin: 0 auto; width: 100%; max-width: var(--chat-max); }
+
+/* Composer fixo (sticky) e centralizado */
+.composer-wrap {
+  position: sticky; bottom: 0; z-index: 5; /* fixa no rodapé da main */
+  display: flex; justify-content: center;
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255,255,255,.07);
+  background: linear-gradient(180deg, rgba(10,12,16,.7), rgba(10,12,16,.9));
+  backdrop-filter: blur(10px);
+}
+.composer { width: 100%; max-width: var(--chat-max); margin-inline: auto; display: grid; grid-template-columns: 1fr auto; gap: 10px; }
+#prompt { width: 100%; min-height: 48px; max-height: 220px; }
+
+/* Botões iguais ao original */
+.actions-right { display: inline-flex; align-items: center; gap: 8px; }
+.send-btn { width: 40px; height: 40px; border: none; border-radius: 12px;
+  background: linear-gradient(180deg, #7fb2ff, #4d87ff); color: #041225; cursor: pointer;
+  box-shadow: 0 6px 18px rgba(77,135,255,.35), inset 0 0 0 1px rgba(255,255,255,.25);
+}
+.btn.danger { background: #2b0f12; border:1px solid #44141a; color:#ffb4b4; border-radius: 10px; padding: 10px 12px; }
+
+/* ======== COMPOSER (fixo, centralizado, idêntico ao original) ======== */
+
+/* Larguras e gutters */
+:root {
+  --chat-max: 900px;           /* largura máxima da coluna central (mensagens + composer) */
+  --shell-pad: 16px;           /* padding lateral do shell */
+  --sidebar-w: 300px;          /* sidebar aberta (desktop) */
+  --sidebar-w-collapsed: 68px; /* sidebar colapsada (desktop) */
+}
+
+/* A Main já é grid (header, conteúdo, rodapé) no seu CSS; reforço a centralização da coluna */
+.main { display: grid; grid-template-rows: auto 1fr auto; }
+
+/* Área das mensagens centralizada e com espaço para o composer fixo */
+.chat-area {
+  display: flex;
+  justify-content: center;
+  padding: 16px;
+  padding-bottom: 120px; /* espaço para o composer fixo não cobrir a última mensagem */
+}
+
+/* FIXA o composer no rodapé da viewport e centraliza o conteúdo */
+.composer-wrap {
+  position: fixed;   /* fixa na viewport para ficar 100% estável como no original */
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  padding: 12px var(--shell-pad);
+  border-top: 1px solid rgba(255,255,255,.07);
+  background: linear-gradient(180deg, rgba(10,12,16,.85), rgba(10,12,16,.95));
+  backdrop-filter: blur(10px);
+}
+
+/* Centraliza o conteúdo do composer na mesma largura da coluna de mensagens */
+.composer {
+  width: 100%;
+  max-width: var(--chat-max);
+  margin-inline: auto;
+  display: grid;
+  grid-template-columns: 1fr auto; /* textarea + ações */
+  gap: 10px;
+}
+
+/* Textarea com altura dinâmica e largura total */
+#prompt {
+  width: 100%;
+  min-height: 48px;
+  max-height: 220px;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 12px;
+  padding: 12px 14px;
+  outline: none;
+  resize: none;
+  caret-color: var(--accent);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.03);
+}
+
+#prompt:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--ring-outer),
+              0 0 0 1.5px var(--ring-inner) inset,
+              inset 0 0 0 1px rgba(255,255,255,.06);
+}
+
+/* Ações à direita (Enviar/Parar) */
+.actions-right { display: inline-flex; align-items: center; gap: 8px; }
+
+.send-btn {
+  width: 40px; height: 40px; border: none; border-radius: 12px;
+  background: linear-gradient(180deg, #7fb2ff, #4d87ff);
+  color: #041225; cursor: pointer;
+  box-shadow: 0 6px 18px rgba(77,135,255,.35), inset 0 0 0 1px rgba(255,255,255,.25);
+}
+
+/* Botão Parar idêntico ao tema */
+.btn.danger {
+  background: #2b0f12; border: 1px solid #44141a; color: #ffb4b4;
+  border-radius: 10px; padding: 10px 12px;
+}
+
+/* ====== Desktop: respeita a largura ocupada pela sidebar quando aberta/fechada ====== */
+@media (min-width: 961px) {
+  /* Com sidebar aberta (classe já usada no seu shell) empurra o backdrop do composer */
+  .app-shell.sidebar-open .composer-wrap {
+    /* visualmente o backdrop acompanha a área de conteúdo;
+       o conteúdo central segue limitado por --chat-max */
+    left: var(--sidebar-w);
+    right: 0;
+  }
+  /* Com sidebar colapsada, ajusta a borda esquerda */
+  .app-shell.sidebar-collapsed .composer-wrap {
+    left: var(--sidebar-w-collapsed);
+    right: 0;
+  }
+}
+
+/* ====== Mobile: sidebar vira overlay; composer ocupa a largura total ====== */
+@media (max-width: 960px) {
+  .composer-wrap { left: 0; right: 0; }
+}
+
+/* ====== Opcional: melhora do scroll dentro da lista de mensagens ====== */
+.messages { margin: 0 auto; width: 100%; max-width: var(--chat-max); }
+
+/* Mantém o texto do agente justificado e o do usuário alinhado à direita (você já tem essas regras) */
+/* (deixo aqui só por referência, pois seu arquivo já está com essa base) */
+
+/* realça a logo grande nas telas de login/registro */
+.auth-card ~ .akasha-icon,
+.akasha-auth-logo .akasha-icon {
+  filter: drop-shadow(0 0 10px rgba(86,151,255,.22));
+}
+
+/* ====== Composer: bubble com "Anexar" (esq) e "Voz" (dir) ====== */
+
+/* O rodapé já está fixo/centralizado — mantemos isso */
+.composer-wrap {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+  display: flex; justify-content: center;
+  padding: 12px var(--shell-pad, 16px);
+  border-top: 1px solid rgba(255,255,255,.07);
+  background: linear-gradient(180deg, rgba(10,12,16,.85), rgba(10,12,16,.95));
+  backdrop-filter: blur(10px);
+}
+.composer {
+  width: 100%; max-width: var(--chat-max, 900px);
+  display: grid; grid-template-rows: auto auto; gap: 8px;
+}
+
+/* O bubble do composer (uma “caixa” única que contém os controles e o textarea) */
+.composer-bubble {
+  display: grid;
+  grid-template-columns: auto 1fr auto; /* [Anexar] [textarea] [Voz] */
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--panel-2, #0d0f14);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.03);
+}
+
+/* Botões dentro do bubble */
+.composer-ctl {
+  width: 36px; height: 36px;
+  display: grid; place-items: center;
+  border-radius: 10px; border: 1px solid rgba(255,255,255,.12);
+  background: #151a21; color: var(--text);
+  cursor: pointer;
+}
+.composer-ctl:hover { filter: brightness(1.08); }
+.composer-ctl:active { transform: translateY(1px); }
+
+/* Textarea ocupa a coluna central, sem borda própria (usa a do bubble) */
+#prompt {
+  width: 100%;
+  min-height: 32px;
+  max-height: 220px;
+  border: none; outline: none; resize: none;
+  background: transparent;
+  color: var(--text);
+  padding: 8px 4px;
+  font: inherit;
+}
+#prompt::placeholder { color: var(--muted); }
+
+/* Dica discreta sob o bubble */
+.composer-hint { color: var(--muted); font-size: 12px; opacity: .9; }
+
+/* Desktop: quando sidebar estiver aberta/fechada, manter backdrop alinhado */
+@media (min-width: 961px) {
+  
+  .app-shell.sidebar-open .composer-wrap { left: var(--sidebar-w, 300px); right: 0; }
+  .app-shell.sidebar-collapsed .composer-wrap { left: var(--sidebar-w-collapsed, 68px); right: 0; }
+}
+
+/* ==================== Composer – Acabamento final ==================== */
+
+/* (mantemos sua base de composer fixo/centralizado…) */
+.composer-wrap {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+  display: flex; justify-content: center;
+  padding: 12px var(--shell-pad, 16px);
+  border-top: 1px solid rgba(255,255,255,.07);
+  background: linear-gradient(180deg, rgba(10,12,16,.85), rgba(10,12,16,.95));
+  backdrop-filter: blur(10px);
+}
+.composer {
+  width: 100%; max-width: var(--chat-max, 900px);
+  display: grid; grid-template-rows: auto auto; gap: 8px; /* bubble + hint */
+}
+
+/* ---------- BUBBLE ocupa 100% e “contém” o textarea e os ícones ---------- */
+.composer-bubble {
+  position: relative;                      /* permite posicionar ícones dentro */
+  width: 100%;
+  padding: 12px 16px;                      /* padding do container */
+  background: var(--panel-2, #0d0f14);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.03);
+  transition: box-shadow .15s ease, border-color .15s ease;
+}
+
+/* realça o BUBBLE quando o textarea receber foco (efeito “dentro do campo”) */
+.composer-bubble:focus-within {
+  border-color: var(--accent, #5697ff);
+  box-shadow:
+    0 0 0 3px var(--ring-outer, rgba(86,151,255,.18)),
+    inset 0 0 0 1.5px var(--ring-inner, rgba(86,151,255,.45)),
+    inset 0 0 0 1px rgba(255,255,255,.06);
+}
+
+/* ---------- ÍCONES “dentro” do campo, sem roubar largura do textarea ---------- */
+.composer-ctl {
+  position: absolute;                      /* sobrepostos no interior do bubble */
+  top: 50%; transform: translateY(-50%);
+  width: 34px; height: 34px;
+  display: grid; place-items: center;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: #151a21; color: var(--text);
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.03);
+}
+.composer-ctl.left  { left: 12px;  }
+.composer-ctl.right { right: 12px; }
+.composer-ctl:hover { filter: brightness(1.08); }
+.composer-ctl:active { transform: translateY(-50%) translateY(1px); }
+
+/* ---------- TEXTAREA ocupa 100% do bubble (com padding p/ não cobrir ícones) ---------- */
+#prompt {
+  width: 100%;
+  min-height: 36px; max-height: 220px;
+  border: none; outline: none; resize: none;
+  background: transparent; color: var(--text);
+  font: inherit; line-height: 1.4;
+  /* reservas laterais para os ícones + respiro */
+  padding: 6px 52px;         /* 52px à direita (voz) */
+  padding-left: 52px;        /* 52px à esquerda (anexar) */
+  box-sizing: border-box;
+}
+#prompt::placeholder { color: var(--muted); }
+
+/* ---------- Hint logo abaixo do bubble ---------- */
+.composer-hint {
+  color: var(--muted);
+  font-size: 12px;
+  opacity: .9;
+  padding-left: 2px;
+}
+
+/* Desktop: backdrop do composer acompanha o conteúdo ao abrir/fechar sidebar */
+@media (min-width: 961px) {
+  .app-shell.sidebar-open .composer-wrap       { left: var(--sidebar-w, 300px); right: 0; }
+  .app-shell.sidebar-collapsed .composer-wrap  { left: var(--sidebar-w-collapsed, 68px); right: 0; }
+}
+/* ======================= COMPOSER • FINAL • OVERRIDE ======================= */
+/* Torna o bubble o único elemento com visual de campo/foco */
+.composer-bubble {
+  position: relative !important;
+  width: 100% !important;
+  padding: 12px 16px !important;
+  background: var(--panel-2, #0d0f14) !important;
+  border: 1px solid rgba(255,255,255,.12) !important;
+  border-radius: 14px !important;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.03) !important;
+  transition: box-shadow .15s ease, border-color .15s ease !important;
+}
+
+/* Foco aparece NO BUBBLE (não no textarea) */
+.composer-bubble:focus-within {
+  border-color: var(--accent, #5697ff) !important;
+  box-shadow:
+    0 0 0 3px var(--ring-outer, rgba(86,151,255,.18)),
+    inset 0 0 0 1.5px var(--ring-inner, rgba(86,151,255,.45)),
+    inset 0 0 0 1px rgba(255,255,255,.06) !important;
+}
+
+/* Ícones dentro do bubble, sobrepostos, sem roubar largura do texto */
+.composer-ctl {
+  position: absolute !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  z-index: 2 !important;
+  width: 34px !important;
+  height: 34px !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(255,255,255,.12) !important;
+  background: #151a21 !important;
+  color: var(--text) !important;
+  cursor: pointer !important;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.03) !important;
+}
+.composer-ctl.left  { left: 12px !important; }
+.composer-ctl.right { right: 12px !important; }
+.composer-ctl:hover { filter: brightness(1.08) !important; }
+.composer-ctl:active{ transform: translateY(-50%) translateY(1px) !important; }
+
+/* TEXTAREA ocupa 100% do bubble — sem borda/box própria e com paddings p/ ícones */
+#prompt {
+  display: block !important;
+  width: 100% !important;
+  min-height: 36px !important;
+  max-height: 220px !important;
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
+  color: var(--text) !important;
+  font: inherit !important;
+  line-height: 1.45 !important;
+  /* reserva espaço para os ícones (esq/dir) */
+  padding: 6px 56px !important;       /* direita: “Voz” */
+  padding-left: 56px !important;      /* esquerda: “Anexar” */
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  box-sizing: border-box !important;
+}
+#prompt::placeholder { color: var(--muted) !important; }
+#prompt:focus,
+#prompt:focus-visible,
+#prompt:focus-within {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+/* Hint abaixo do bubble, alinhado à esquerda */
+.composer-hint {
+  color: var(--muted) !important;
+  font-size: 12px !important;
+  opacity: .9 !important;
+  padding-left: 2px !important;
+}
+
+/* Garante o backdrop alinhado com a área de conteúdo no desktop */
+@media (min-width: 961px) {
+  .app-shell.sidebar-open .composer-wrap      { left: var(--sidebar-w, 300px) !important; right: 0 !important; }
+  .app-shell.sidebar-collapsed .composer-wrap { left: var(--sidebar-w-collapsed, 68px) !important; right: 0 !important; }
+}
+/* ======================= COMPOSER • FIX FINAL ======================= */
+/* 1) O composer precisa empilhar: [bubble] em cima + [hint] embaixo */
+.composer {
+  display: grid !important;
+  grid-template-columns: 1fr !important;  /* só 1 coluna */
+  grid-template-rows: auto auto !important; /* linha 1 = bubble; linha 2 = hint */
+  gap: 8px !important;
+  width: 100% !important;
+  max-width: var(--chat-max, 900px) !important;
+  margin-inline: auto !important;
+}
+
+/* 2) Bubble 100% e único dono do foco */
+.composer-bubble {
+  position: relative !important;
+  display: block !important;              /* cancela grid antigo que dividia o espaço */
+  width: 100% !important;
+  padding: 12px 16px !important;
+  background: var(--panel-2, #0d0f14) !important;
+  border: 1px solid rgba(255,255,255,.12) !important;
+  border-radius: 14px !important;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.03) !important;
+  transition: box-shadow .15s ease, border-color .15s ease !important;
+}
+.composer-bubble:focus-within {
+  border-color: var(--accent, #5697ff) !important;
+  box-shadow:
+    0 0 0 3px var(--ring-outer, rgba(86,151,255,.18)),
+    inset 0 0 0 1.5px var(--ring-inner, rgba(86,151,255,.45)),
+    inset 0 0 0 1px rgba(255,255,255,.06) !important;
+}
+
+/* 3) Ícones parecem “dentro” do campo, mas não roubam largura do texto */
+.composer-ctl {
+  position: absolute !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  z-index: 2 !important;
+  width: 34px !important;
+  height: 34px !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(255,255,255,.12) !important;
+  background: #151a21 !important;
+  color: var(--text) !important;
+  cursor: pointer !important;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.03) !important;
+}
+.composer-ctl.left  { left: 12px !important; }
+.composer-ctl.right { right: 12px !important; }
+.composer-ctl:hover { filter: brightness(1.08) !important; }
+.composer-ctl:active{ transform: translateY(-50%) translateY(1px) !important; }
+
+/* 4) Textarea ocupa 100% do bubble e não tem “balão” próprio */
+#prompt {
+  display: block !important;
+  width: 100% !important;
+  min-height: 110px !important;
+  max-height: 220px !important;
+
+  /* ZERA o visual próprio do textarea */
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+
+  color: var(--text) !important;
+  font: inherit !important;
+  line-height: 1.45 !important;
+
+  /* Cria áreas “mortas” para os ícones esquerda/direita */
+  padding: 6px 56px !important;     /* direita */
+  padding-left: 56px !important;    /* esquerda */
+  box-sizing: border-box !important;
+}
+#prompt::placeholder { color: var(--muted) !important; }
+#prompt:focus,
+#prompt:focus-visible,
+#prompt:focus-within {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+/* 5) Hint embaixo do bubble */
+.composer-hint {
+  grid-row: 2 / 3 !important;
+  color: var(--muted) !important;
+  font-size: 12px !important;
+  opacity: .9 !important;
+  padding-left: 2px !important;
+}
+
+/* 6) Backdrop acompanha a sidebar no desktop (mantém seu comportamento atual) */
+@media (min-width: 961px) {
+  .app-shell.sidebar-open .composer-wrap      { left: var(--sidebar-w, 300px) !important; right: 0 !important; }
+  .app-shell.sidebar-collapsed .composer-wrap { left: var(--sidebar-w-collapsed, 68px) !important; right: 0 !important; }
+}
+/* Barra de sugestões acima do composer-bubble */
+.composer-suggestions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-bottom:8px;
+}
+
+/* Botão estilo “pill” (chip), coerente com seu tema */
+.chip{
+  appearance:none;
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:999px;
+  padding:8px 12px;
+  background:#152235;
+  color:var(--text);
+  cursor:pointer;
+  font-size:14px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+}
+.chip:hover{ filter:brightness(1.06); }
+.chip:active{ transform:translateY(1px); }
+
+/* Compensa a altura do composer + sugestões para não cortar a última mensagem */
+.chat-area { padding-bottom: 189px !important; }
+
+/* Em telas menores o composer ocupa mais vertical */
+@media (max-width: 960px) {
+  .chat-area { padding-bottom: 208px !important; }
+}
+
+/* (Opcional) um espacinho extra no fim da lista ajuda a “respirar” */
+.messages { padding-bottom: 8px; }
+
+/* 🔥 FORCE MOBILE LAYOUT — sidebar não influencia o conteúdo */
+@media (max-width: 960px) {
+  .composer-wrap,
+  .topbar,
+  .chat-area {
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+  }
+
+  .messages {
+    max-width: 100% !important;
+    padding: 0 12px !important;
+  }
+
+  .message.assistant .bubble,
+  .message.user .bubble {
+    max-width: 95% !important;
+  }
+}
+
+/* 🔥 Corrige inputs minúsculos no iPhone (Safari) */
+.auth-card input {
+  font-size: 17px !important; /* evita zoom e aumenta o placeholder */
+  padding: 14px 16px !important; 
+}
+
+/* maior visibilidade do placeholder */
+.auth-card input::placeholder {
+  font-size: 17px !important;
+  opacity: 0.9;
+}
+
+/* botão maior no mobile */
+@media (max-width: 480px) {
+  .auth-card {
+    max-width: 90% !important;
+    padding: 24px !important;
+  }
+}
+
+/* Botão flutuante SEM dependência da sidebar */
+.sidebar-toggle-fab {
+  position: fixed;
+  top: 14px;
+  left: 12px;           /* fica sempre acessível */
+  z-index: 1000;        /* acima de topbar, cards e overlay */
+  width: 50px; height: 50px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: #1b1f26;
+  color: #d8dee9;
+  display: grid; place-items: center;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0,0,0,.4);
+}
+
+/* Hover/active sutis */
+.sidebar-toggle-fab:hover { filter: brightness(1.08); }
+.sidebar-toggle-fab:active { transform: translateY(1px); }
+
+/* Desktop: quando a sidebar está aberta (300px), você pode opcionalmente deslocar o FAB,
+   mas eu RECOMENDO mantê-lo no canto para não "sumir" ao fechar. */
+@media (min-width: 961px) {
+  .app-shell.sidebar-open .sidebar-toggle-fab {
+    /* comente a linha abaixo para manter sempre no canto */
+    /* left: 16px; */
+  }
+}
+
+/* Mobile: overlay ocupa a tela, mas o botão continua clicável */
+@media (max-width: 960px) {
+  .sidebar-toggle-fab { left: 12px; }
+}
+
+@media (max-width: 960px) {
+  .sidebar-backdrop {
+    position: fixed; inset: 0; z-index: 60;
+    background: rgba(0,0,0,.35);
+    display: none;
+  }
+  .app-shell.sidebar-open .sidebar-backdrop { display: block; }
+}
+/* ===== MOBILE: topbar mais alta e título com respiro ===== */
+@media (max-width: 960px) {
+  /* garante que a barra tenha altura suficiente p/ avatar + ⋯ */
+  .topbar {
+    min-height: 64px;                 /* altura confortável no iPhone */
+    padding-top: 10px !important;     /* pequeno respiro interno */
+    padding-bottom: 8px !important;
+  }
+
+  /* se o título tem id="convTitle" (pelo seu Chat.tsx), dê respiro no topo */
+  #convTitle {
+    display: block;
+    margin-top: 55px!important;                 /* “desce” o título sob os ícones */
+    line-height: 1.25;
+    word-break: break-word;
+    font-size: 1.5em;
+  }
+
+  /* avatar + botão ⋯ permanecem ancorados à direita sem cobrir o título */
+  .topbar-right {
+    position: absolute;
+    top: 8px;                         /* mantém acima do título */
+    right: 12px;
+    z-index: 5;                       /* acima do fundo, abaixo de modais */
+  }
+}
+
+/* ===== DROPDOWN: itens maiores e mais “tocáveis” ===== */
+.user-menu {
+  /* já existe no seu CSS; reforço visibilidade geral */
+  border: 1px solid rgba(255,255,255,.14) !important;
+  box-shadow: 0 12px 26px rgba(0,0,0,.38) !important;
+  backdrop-filter: blur(4px);
+}
+
+/* tamanho padrão (desktop) */
+.user-menu button, .conv-menu button {
+  font-size: 15.5px;                  /* ↑ 14px -> 15.5px */
+  line-height: 1.25;
+  padding: 10px 14px;                 /* ↑ hit area */
+}
+
+/* item “perigoso” mais evidente */
+.user-menu button.danger {
+  color: #ffb4b4 !important;
+}
+
+/* hover com leve realce */
+.user-menu button:hover {
+  background: rgba(255,255,255,.08) !important;
+}
+
+/* MOBILE: ainda maior para dedo/polegar */
+@media (max-width: 960px) {
+  .user-menu {
+    min-width: 200px;                 /* menu um pouco mais largo */
+  }
+  .user-menu button {
+    font-size: 17px;                  /* confortável no iPhone */
+    padding: 12px 16px;               /* hit area ≥ 44px de altura */
+  }
+}
+
+/* centraliza título dentro do mesmo limite das mensagens */
+.topbar { display: flex; justify-content: flex-start; }
+#convTitle { width: 100%; max-width: var(--chat-max); }
+
+
+/***** ====== UI • FIX CONSOLIDADO ====== *****/
+
+/* A) TOPBAR & TÍTULO */
+/* Desktop: título centralizado na coluna das mensagens */
+.topbar { display: flex; align-items: center; justify-content: flex-start; position: relative; padding-inline: 16px; }
+#convTitle { width: 100%; max-width: var(--chat-max); margin: 0; }
+
+/* Mobile: dá o respiro sem empurrar tudo demais */
+@media (max-width: 960px) {
+  .topbar { min-height: 56px; padding-top: 6px; padding-bottom: 6px; }
+  #convTitle { margin-top: 36px; line-height: 1.25; word-break: break-word; }
+  .topbar-right { position: absolute; top: 8px; right: 12px; z-index: 5; }
+}
+
+/* B) DROPDOWN (desktop + mobile) */
+.user-menu {
+  border: 1px solid rgba(255,255,255,.14);
+  box-shadow: 0 12px 26px rgba(0,0,0,.38);
+  backdrop-filter: blur(4px);
+}
+.user-menu button {
+  font-size: 15.5px;
+  line-height: 1.25;
+  padding: 10px 14px;
+}
+.user-menu button:hover { background: rgba(255,255,255,.08); }
+.user-menu button.danger { color: #ffb4b4; }
+/* Mobile: aumenta toque */
+@media (max-width: 960px) {
+  .user-menu { min-width: 200px; }
+  .user-menu button { font-size: 17px; padding: 12px 16px; }
+}
+
+/* C) SIDEBAR • FAB fixo e overlay mobile */
+.sidebar-toggle-fab {
+  position: fixed; top: 14px; left: 12px; z-index: 1000;
+  width: 44px; height: 44px; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: #1b1f26; color: #d8dee9;
+  display: grid; place-items: center; cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0,0,0,.4);
+}
+.sidebar-toggle-fab:hover { filter: brightness(1.08); }
+.sidebar-toggle-fab:active { transform: translateY(1px); }
+
+/* Backdrop do overlay mobile */
+@media (max-width: 960px) {
+  .sidebar-backdrop { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,.35); display: none; }
+  .app-shell.sidebar-open .sidebar-backdrop { display: block; }
+}
+
+/* D) CHAT COLUNA • Centralização e largura estável */
+:root { --chat-max: 900px; }
+.chat-area { display: flex; justify-content: center; padding: 16px; padding-bottom: 120px; }
+.messages  { margin: 0 auto; width: 100%; max-width: var(--chat-max); padding-bottom: 8px; }
+
+/* Mobile: mensagens ocupam a largura total com respiro lateral */
+@media (max-width: 960px) {
+  .messages { max-width: 100%; padding: 0 12px; }
+  .message.assistant .bubble, .message.user .bubble { max-width: 95%; }
+}
+
+/* E) COMPOSER consolidado (uma única versão) */
+/* Fica fixo na viewport (estável), centralizado na mesma largura da coluna */
+.composer-wrap {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+  display: flex; justify-content: center;
+  padding: 12px var(--shell-pad, 16px);
+  border-top: 1px solid rgba(255,255,255,.07);
+  background: linear-gradient(180deg, rgba(10,12,16,.85), rgba(10,12,16,.95));
+  backdrop-filter: blur(10px);
+}
+.composer {
+  width: 100%; max-width: var(--chat-max, 900px);
+  display: grid; grid-template-rows: auto auto; gap: 8px; /* [bubble] + [hint] */
+}
+
+/* Composer bubble único (ícones “dentro” do campo) */
+.composer-bubble {
+  position: relative;
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--panel-2, #0d0f14);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.03);
+  transition: box-shadow .15s ease, border-color .15s ease;
+}
+.composer-bubble:focus-within {
+  border-color: var(--accent, #5697ff);
+  box-shadow:
+    0 0 0 3px var(--ring-outer, rgba(86,151,255,.18)),
+    inset 0 0 0 1.5px var(--ring-inner, rgba(86,151,255,.45)),
+    inset 0 0 0 1px rgba(255,255,255,.06);
+}
+.composer-ctl {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  z-index: 2; width: 34px; height: 34px;
+  display: grid; place-items: center;
+  border-radius: 10px; border: 1px solid rgba(255,255,255,.12);
+  background: #151a21; color: var(--text);
+  cursor: pointer; box-shadow: inset 0 0 0 1px rgba(255,255,255,.03);
+}
+.composer-ctl.left  { left: 12px; }
+.composer-ctl.right { right: 12px; }
+
+/* Textarea ocupa 100% (com área para os ícones) */
+#prompt {
+  display: block;
+  width: 100%;
+  min-height: 36px; max-height: 220px;
+  border: none; outline: none; resize: none;
+  background: transparent; color: var(--text);
+  font: inherit; line-height: 1.45;
+  padding: 6px 56px;           /* direita: “Voz” */
+  padding-left: 56px;          /* esquerda: “Anexar” */
+  box-sizing: border-box;
+}
+#prompt::placeholder { color: var(--muted); }
+
+/* Hint discreta abaixo do bubble */
+.composer-hint { color: var(--muted); font-size: 12px; opacity: .9; padding-left: 2px; }
+
+/* Desktop: backdrop do composer acompanha a sidebar */
+@media (min-width: 961px) {
+  .app-shell.sidebar-open .composer-wrap      { left: var(--sidebar-w, 300px); right: 0; }
+  .app-shell.sidebar-collapsed .composer-wrap { left: var(--sidebar-w-collapsed, 68px); right: 0; }
+}
+
+/* Mobile: o composer ocupa largura total, sem deslocamento */
+@media (max-width: 960px) {
+  .composer-wrap { left: 0; right: 0; }
+  .chat-area     { padding-bottom: 220px; } /* compensa altura do composer */
+}
+
+/* F) LOGIN inputs maiores no iPhone */
+@media (max-width: 600px) {
+  .auth-card input { font-size: 17px; padding: 14px 16px; }
+  .auth-card input::placeholder { font-size: 17px; opacity: .9; }
+  .auth-card { max-width: 90%; padding: 24px; }
+}
+
+/************ DESKTOP • FIX ************/
+@media (min-width: 961px) {
+  /* 1) Sidebar volta a participar da grid (nada de overlay em desktop) */
+  .sidebar {
+    position: static !important;
+    transform: none !important;
+    width: auto !important;      /* a largura é ditada pela grid (300px ou 68px) */
+  }
+
+  /* 2) Backdrop do mobile nunca aparece em desktop */
+  .sidebar-backdrop {
+    display: none !important;
+  }
+
+  /* 3) Shell em desktop: grid de 300px|1fr ou 68px|1fr conforme estado */
+  .app-shell {
+    display: grid;
+    grid-template-rows: 100dvh;
+    grid-template-columns: 300px 1fr;           /* sidebar aberta */
+  }
+  .app-shell.sidebar-collapsed {
+    grid-template-columns: 68px 1fr;            /* sidebar colapsada */
+  }
+
+  /* 4) Composer em desktop: alinhado ao conteúdo, acompanhando a sidebar */
+  .composer-wrap {
+    position: fixed;                             /* como você já usa */
+    right: 0;                                    /* encosta à direita da janela */
+    bottom: 0;
+    z-index: 5;
+    /* a borda esquerda acompanha o estado da sidebar */
+    left: 300px;                                 /* aberta */
+  }
+  .app-shell.sidebar-collapsed .composer-wrap {
+    left: 68px;                                  /* colapsada */
+  }
+
+  /* 5) Área central do chat e título — centralizados, sem “puxar” para a esquerda */
+  .chat-area {
+    display: flex;
+    justify-content: center;
+    padding: 16px;
+    padding-bottom: 120px;                       /* espaço p/ composer fixo */
+  }
+  #convTitle {
+    margin-top: 0 !important;                    /* desktop não precisa “descer” */
+    width: 100%;
+    max-width: var(--chat-max);
+  }
+
+  /* 6) FAB no desktop: manter no canto ou, se preferir, “acompanhar” a sidebar.
+     (A linha abaixo é opcional; comente se preferir o FAB fixo no canto esquerdo) */
+  .app-shell.sidebar-open .sidebar-toggle-fab { left: 16px; }
+}
+
+/************ MOBILE • GARANTIA (mantém o overlay) ************/
+@media (max-width: 960px) {
+  .app-shell { grid-template-columns: 1fr !important; } /* conteúdo 100% */
+  .sidebar   { position: fixed !important; inset: 0 auto 0 0; width: 280px; transform: translateX(-100%); z-index: 70; }
+  .app-shell.sidebar-open .sidebar { transform: translateX(0); }
+  .composer-wrap { left: 0 !important; right: 0 !important; } /* composer ocupa a largura total */
+}
+
+
+/************ DESKTOP • TOPBAR/TÍTULO NÃO COLIDEM COM BOTÕES ************/
+@media (min-width: 961px) {
+  /* Título central na mesma coluna das mensagens, mas com "reserva" à direita
+     para o bloco de botões (avatar/⋯). Ajuste os 140px se tiver mais/menos ícones. */
+  #convTitle {
+    width: 100%;
+    max-width: var(--chat-max);
+    margin: 0;
+    padding-right: 140px;         /* ← reserva para .topbar-right */
+    line-height: 1.25;
+    word-break: break-word;
+  }
+
+  /* Botões à direita: ficam numa “faixa” própria, acima do título e fora da área do texto */
+  .topbar-right {
+    position: absolute;
+    right: 16px;
+    top: 8px;
+    z-index: 6;                   /* acima do fundo da topbar */
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* FAB (hambúrguer flutuante) – mantenha no canto, sem cruzar a logo/título */
+  .sidebar-toggle-fab {
+    top: 14px;
+    left: 16px;                   /* canto esquerdo; não invade a coluna do título */
+    z-index: 7;                   /* abaixo de modais, acima do fundo */
+  }
+}
+
+/************ DESKTOP • COLAPSO 300→68px SEM FAIXA ************/
+@media (min-width: 961px) {
+  /* A grid do shell dita a largura do trilho da sidebar */
+  .app-shell {
+    display: grid;
+    grid-template-rows: 100dvh;
+    grid-template-columns: 300px 1fr;        /* aberta */
+  }
+  .app-shell.sidebar-collapsed {
+    grid-template-columns: 68px 1fr;         /* colapsada */
+  }
+
+  /* A PRÓPRIA sidebar acompanha a largura do trilho (evita “faixa”) */
+  .app-shell .sidebar            { width: 300px !important; position: static !important; transform: none !important; }
+  .app-shell.sidebar-collapsed .sidebar { width: 68px  !important; position: static !important; transform: none !important; }
+
+  /* O composer (fixo) “encosta” corretamente após a sidebar */
+  .composer-wrap { left: 300px; right: 0; bottom: 0; }
+  .app-shell.sidebar-collapsed .composer-wrap { left: 68px; }
+
+  /* O backdrop é só do mobile; nunca aparece no desktop */
+  .sidebar-backdrop { display: none !important; }
+}
+
+@media (min-width: 961px) {
+  .sidebar {
+    position: sticky !important;
+    top: 0;
+    height: 100dvh;
+    overflow: hidden;          /* não deixa conteúdo “vazar” quando colapsa */
+  }
+}
+@media (min-width: 961px) { .sidebar-toggle-fab { display: none; } }
+
+/************ DESKTOP • FIX FINAL ************/
+@media (min-width: 961px) {
+  /* 1) Sidebar: colapsar = OCULTAR MESMO (0px) */
+  .app-shell {
+    display: grid;
+    grid-template-rows: 100dvh;
+    grid-template-columns: 300px 1fr;                  /* aberta (padrão) */
+  }
+  .app-shell .sidebar {
+    position: static !important;
+    transform: none !important;
+    width: 300px !important;                            /* aberta = 300 */
+    min-width: 0 !important;                            /* evita largura residual */
+    overflow: hidden;                                   /* nada “vaza” */
+    border-right: 1px solid rgba(255,255,255,.07);
+  }
+
+  /* COLAPSADA = some de verdade (0px | 1fr) */
+  .app-shell.sidebar-collapsed {
+    grid-template-columns: 0 1fr !important;
+  }
+  .app-shell.sidebar-collapsed .sidebar {
+    width: 0 !important;
+    border-right: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    pointer-events: none !important;                    /* não intercepta clique */
+  }
+
+  /* 2) Composer acompanha a borda esquerda do conteúdo
+        (300 quando aberta, 0 quando escondida) */
+  .composer-wrap {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    z-index: 5;
+    left: 300px;                                        /* aberta */
+  }
+  .app-shell.sidebar-collapsed .composer-wrap {
+    left: 0;                                            /* sidebar oculta */
+  }
+
+  /* 3) Topbar/título: reservar espaço p/ bloco de botões à direita (avatar/⋯) */
+  .topbar {
+    position: relative;
+    display: flex; align-items: center; justify-content: flex-start;
+    padding-inline: 16px;
+    min-height: 56px;
+  }
+  .topbar-title-area {
+    padding-right: 140px;   /* reserva espaço para .topbar-right absoluto */
+  }
+  .topbar-right {
+    position: absolute;
+    right: 16px;
+    top: 8px;
+    z-index: 6;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+
+  /* 4) FAB (hambúrguer) sempre no canto ESQUERDO do viewport (fora da sidebar) */
+  .sidebar-toggle-fab {
+    position: fixed !important;
+    top: 14px !important;
+    left: 16px !important;                                /* canto esquerdo fixo */
+    z-index: 7 !important;                                /* acima do fundo/topbar */
+  }
+
+  /* 5) Backdrop é só do mobile — nunca aparece em desktop */
+  .sidebar-backdrop { display: none !important; }
+}
+
+/************ MOBILE • GARANTIA ************/
+@media (max-width: 960px) {
+  .app-shell { grid-template-columns: 1fr !important; }
+  .sidebar { position: fixed !important; inset: 0 auto 0 0; width: 280px; transform: translateX(-100%); z-index: 70; }
+  .app-shell.sidebar-open .sidebar { transform: translateX(0); }
+  .sidebar-backdrop { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,.35); display: none; }
+  .app-shell.sidebar-open .sidebar-backdrop { display: block; }
+
+  /* FAB já está correto no mobile; mantemos no canto esquerdo */
+  .sidebar-toggle-fab { left: 12px !important; }
+  .brand22{
+       margin: -6px 0 0 69px;;
+  }
+  #userAvatar{display: none;
+  }
+}
+/************ FAB (hambúrguer) fixo no canto ************/
+.sidebar-toggle-fab{
+  position: fixed !important;
+  top: 14px !important;
+  left: 16px !important;         /* canto esquerdo da tela */
+  z-index: 10000 !important;     /* acima de topbar, sidebar, etc. */
+  width: 44px; height: 44px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: #1b1f26;
+  color: #d8dee9;
+  display: grid; place-items: center;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0,0,0,.4);
+}
+.sidebar-toggle-fab:hover { filter: brightness(1.08); }
+.sidebar-toggle-fab:active { transform: translateY(1px); }
+
+/* Se desejar ocultar o FAB no desktop e usar só um botão dentro da sidebar,
+   descomente a linha abaixo. Eu deixei visível para você conseguir abrir,
+   já que a sidebar está 0px quando colapsada. */
+/* @media (min-width: 961px){ .sidebar-toggle-fab{ display:none; } } */
+
+/************ DESKTOP • COLAPSO 0px ************/
+@media (min-width: 961px) {
+  #messages{
+      padding-bottom: 90px;
+}
+  .app-shell {
+    display: grid;
+    grid-template-rows: 100dvh;
+    grid-template-columns: 300px 1fr;             /* aberta */
+  }
+  .app-shell .sidebar{
+    position: static !important;
+    transform: none !important;
+    width: 300px !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    pointer-events: auto !important;
+    border-right: 1px solid rgba(255,255,255,.07);
+  }
+
+  .app-shell.sidebar-collapsed{
+    grid-template-columns: 0 1fr !important;      /* colapso total */
+  }
+  .app-shell.sidebar-collapsed .sidebar{
+    width: 0 !important;
+    min-width: 0 !important;
+    border-right: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    pointer-events: none !important;              /* não bloqueia clique no FAB */
+  }
+
+  /* Composer acompanha a borda esquerda do conteúdo */
+  .composer-wrap{ left: 300px; right: 0; bottom: 0; position: fixed; z-index: 5; }
+  .app-shell.sidebar-collapsed .composer-wrap{ left: 0; }
+
+  /* Backdrop é só do mobile — jamais no desktop */
+  .sidebar-backdrop{ display: none !important; }
+}
+
+/* Botão enviar (FAB) à direita do bubble, semelhante ao print */
+.send-fab {
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #7fb2ff, #4d87ff);
+  color: #041225;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(77,135,255,.35), inset 0 0 0 1px rgba(255,255,255,.25);
+  display: grid;
+  place-items: center;
+}
+.send-fab:disabled { opacity: .6; cursor: not-allowed; }
+
+/* Garante espaçamento lateral entre o bubble e o FAB */
+.composer {
+  grid-template-rows: auto auto;
+  grid-template-columns: 1fr auto; /* bubble ocupa 1fr; FAB fica à direita */
+  gap: 10px;
+}
+
+/* Ícones internos do bubble (anexar/mic) já estavam ok; se quiser menor: */
+.composer-ctl svg { width: 16px; height: 16px; }
+/* Opcional: deixar o ENVIAR como bolinha “FAB” */
+.send-btn{
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;  /* em vez de 12px */
+}
+/* ===== Composer: dois botões à direita (Mic + Enviar) ===== */
+
+/* Botão “Enviar” encostado à direita do bubble */
+.composer-ctl.right.send {
+  right: 12px !important;
+}
+
+/* Botão “Mic” afastado 48px do canto para abrir espaço ao Enviar */
+.composer-ctl.right.mic {
+  right: 60px !important; /* 12px + (36px do botão) + ~respiro */
+}
+
+/* Textarea reserva espaço para 2 botões à direita (Mic + Enviar) */
+#prompt {
+  padding-right: 104px !important; /* ~36+8 + 36+8 + folga */
+}
+
+/* (Opcional) Desabilitado visual do Enviar */
+.composer-ctl.right.send:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+/* ====== Module Picker ====== */
+.module-picker-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, .72);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.module-picker {
+  background: var(--panel);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 40px 36px 32px;
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.module-picker-title {
+  margin: 0 0 4px;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  text-align: center;
+}
+
+.module-picker-subtitle {
+  margin: 0 0 24px;
+  font-size: 14px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.module-picker-loading {
+  text-align: center;
+  color: var(--muted);
+  padding: 24px 0;
+}
+
+.module-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.module-card {
+  background: var(--panel-2);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 12px;
+  padding: 24px 20px;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color .18s, background .18s, transform .15s;
+  color: var(--text);
+}
+
+.module-card:hover {
+  border-color: var(--accent);
+  background: rgba(86,151,255,.07);
+  transform: translateY(-2px);
+}
+
+.module-card-img {
+  align-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+}
+.module-card-img svg,
+.module-card-img img { width: 64px; height: 64px; }
+
+.module-card-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.module-card-desc {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.module-picker-cancel {
+  margin-top: 16px;
+  align-self: center;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 6px;
+  transition: color .15s, background .15s;
+}
+
+.module-picker-cancel:hover {
+  color: var(--text);
+  background: rgba(255,255,255,.06);
+}
+
+/* empty state */
+.module-picker-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 24px 0;
+  text-align: center;
+}
+.module-picker-empty-msg {
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.6;
+}
+.module-picker-store-btn {
+  padding: 10px 24px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+.module-picker-store-btn:hover { opacity: .85; }
+
+/* chest hint */
+.module-picker-chest-hint {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+.module-picker-chest-link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+.module-picker-chest-link:hover { opacity: .8; }
+
+/* ====== Badge de módulo na Sidebar ====== */
+.conv-module-badge {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  color: var(--accent);
+  opacity: .8;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+/* 1) Garantir que a área de chat nunca crie scroll horizontal da página */
+html, body, .main, .chat-area, .messages {
+  overflow-x: hidden !important;
+}
+
+/* 2) A bolha NUNCA pode exceder a largura do seu container */
+.message .bubble {
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  overflow-x: hidden;                  /* evita barra horizontal na bolha */
+  word-wrap: break-word;               /* compat antigo */
+  overflow-wrap: anywhere;             /* quebra palavras/URLs longas */
+  word-break: break-word;              /* fallback */
+}
+
+/* 3) Imagens, vídeos, iframes “fluídos” dentro da bolha */
+.message .bubble img,
+.message .bubble video,
+.message .bubble iframe,
+.message .bubble canvas {
+  max-width: 100% !important;
+  height: auto !important;
+  display: block;
+}
+
+/* 4) Links/URLs muito longas não estouram */
+.message .bubble a {
+  word-break: break-all;     /* ou use 'anywhere' se preferir quebra menos agressiva */
+}
+
+/* 5) Código / pré-formatado:
+   - Opção A (quebrar linhas dentro do código) */
+.message .bubble pre,
+.message .bubble code {
+  white-space: pre-wrap !important; /* quebra linha */
+  word-break: break-word;
+  overflow-x: hidden;               /* sem barra horizontal */
+}
+
+/*   - Opção B (se preferir manter formatação rígida e permitir scroll na bolha)
+     Descomente estas duas linhas e REMOVA o bloco acima de pre/code: */
+/*
+.message .bubble {
+  overflow-x: auto;                 // apenas a bolha scrola na horizontal, não a página
+}
+.message .bubble pre { white-space: pre; overflow-x: auto; }
+*/
+
+/* 6) Tabelas responsivas dentro da bolha:
+   a tabela vira bloco rolável HORIZONTAL *apenas dentro da bolha*, nunca na página */
+.message .bubble table {
+  display: block;
+  max-width: 100%;
+  width: max-content;              /* preserva a largura mínima das colunas */
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+.message .bubble th, .message .bubble td { box-sizing: border-box; }
+
+/* 7) Evitar “estouro” por margens negativas/positions */
+.message, .message .bubble, .messages {
+  position: relative;
+}
+
+/* 8) Evitar soma de padding causar “estouro” quando usar width:100% */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* ====== Bolha “Pensando...” ====== */
+@keyframes thinking-dots {
+  0%, 20%  { opacity: .2; transform: translateY(0); }
+  50%      { opacity: 1;  transform: translateY(-4px); }
+  80%,100% { opacity: .2; transform: translateY(0); }
+}
+.bubble.thinking {
+  color: var(--text-muted, #8899bb);
+  font-style: italic;
+  letter-spacing: .04em;
+}
+.bubble.thinking::after {
+  content: ' ●●●';
+  display: inline-block;
+}
+.bubble.thinking::after {
+  animation: thinking-dots 1.2s ease-in-out infinite;
+}
+
+/* ====== Saldo de moedas (Topbar) ====== */
+.coin-balance {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 999px;
+  padding: 0 14px;
+  height: 40px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #d8dee9;
+  cursor: default;
+}
+.coin-icon { color: #f4b942; font-size: 12px; }
+.coin-value { letter-spacing: .02em; }
+
+/* ====== Hint saldo insuficiente ====== */
+.hint-no-balance {
+  color: #ef4444 !important;
+  font-weight: 500;
+}
+
+/* ====== Tema claro ====== */
+[data-theme="light"] {
+  --bg: #f0f2f5;
+  --panel: #ffffff;
+  --panel-2: #f7f8fa;
+  --text: #1a1d23;
+  --muted: #6b7280;
+  --accent: #3b7ef8;
+  --danger: #dc2626;
+  --ring-outer: rgba(59,126,248,.18);
+  --ring-inner: rgba(59,126,248,.45);
+  color-scheme: light;
+}
+[data-theme="light"] body {
+  background: linear-gradient(180deg, #f0f2f5 0%, #e8eaf0 100%);
+  color: var(--text);
+}
+[data-theme="light"] .topbar {
+  background: #ffffff;
+  border-bottom-color: rgba(0,0,0,.08);
+}
+[data-theme="light"] .sidebar {
+  background: #ffffff;
+  border-right-color: rgba(0,0,0,.08);
+}
+[data-theme="light"] .coin-balance {
+  background: rgba(0,0,0,.05);
+  border-color: rgba(0,0,0,.12);
+  color: #1a1d23;
+}
+[data-theme="light"] .user-avatar-btn {
+  background: #e8eaf0;
+  border-color: rgba(0,0,0,.12);
+  color: #1a1d23;
+}
+[data-theme="light"] .user-menu {
+  background: #ffffff;
+  border-color: rgba(0,0,0,.12);
+  box-shadow: 0 8px 24px rgba(0,0,0,.12);
+}
+[data-theme="light"] .user-menu button { color: #1a1d23; }
+[data-theme="light"] .user-menu button:hover { background: rgba(0,0,0,.05); }
+[data-theme="light"] .message .bubble {
+  background: #f7f8fa;
+  border-color: rgba(0,0,0,.08);
+  color: #1a1d23;
+}
+[data-theme="light"] .message.user .bubble {
+  background: #e0eaff;
+  border-color: rgba(59,126,248,.3);
+}
+[data-theme="light"] .message.assistant .bubble {
+  background: #f0f2f8;
+  border-color: rgba(0,0,0,.06);
+}
+[data-theme="light"] .conv-link {
+  background: #f7f8fa;
+  border-color: rgba(0,0,0,.08);
+  color: #1a1d23;
+}
+[data-theme="light"] .conv-menu {
+  background: #ffffff;
+  border-color: rgba(0,0,0,.12);
+}
+[data-theme="light"] .theme-toggle-btn {
+  background: rgba(0,0,0,.05);
+  border-color: rgba(0,0,0,.12);
+  color: #1a1d23;
+}
+[data-theme="light"] .theme-menu {
+  background: #ffffff;
+  border-color: rgba(0,0,0,.12);
+  box-shadow: 0 8px 24px rgba(0,0,0,.12);
+}
+[data-theme="light"] .theme-menu button { color: #1a1d23; }
+[data-theme="light"] .theme-menu button:hover { background: rgba(0,0,0,.05); }
+[data-theme="light"] .theme-menu button.active { background: rgba(59,126,248,.1); color: #3b7ef8; }
+/* Composer wrap background */
+[data-theme="light"] .composer-wrap {
+  background: linear-gradient(180deg, rgba(240,242,245,.9), rgba(232,234,240,.98)) !important;
+  border-top-color: rgba(0,0,0,.07) !important;
+}
+/* Composer inner controls */
+[data-theme="light"] .composer-bubble {
+  background: #ffffff !important;
+  border-color: rgba(0,0,0,.12) !important;
+}
+[data-theme="light"] .composer-ctl {
+  background: #e8eaf0 !important;
+  border-color: rgba(0,0,0,.12) !important;
+  color: #1a1d23 !important;
+}
+[data-theme="light"] .composer-ctl:hover { background: #dde0e8 !important; }
+/* Stop button (danger) */
+[data-theme="light"] .btn.danger {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #dc2626;
+}
+/* Sidebar toggle (both variants) */
+[data-theme="light"] .sidebar-toggle,
+[data-theme="light"] .sidebar-toggle-fab {
+  background: #ffffff !important;
+  border-color: rgba(0,0,0,.12) !important;
+  color: #1a1d23 !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,.1) !important;
+}
+/* Conv item links */
+[data-theme="light"] .conv-item a {
+  background: #f7f8fa;
+  border-color: rgba(0,0,0,.07);
+  color: #1a1d23;
+}
+[data-theme="light"] .conv-item a:hover { background: #eef0f4; }
+/* Sidebar separators */
+[data-theme="light"] .side-header,
+[data-theme="light"] .side-actions {
+  border-bottom-color: rgba(0,0,0,.07);
+}
+/* Module picker */
+[data-theme="light"] .module-picker {
+  border-color: rgba(0,0,0,.08);
+}
+[data-theme="light"] .module-card {
+  background: #f7f8fa;
+  border-color: rgba(0,0,0,.08);
+  color: #1a1d23;
+}
+[data-theme="light"] .module-card:hover { background: #eef0f4; }
+[data-theme="light"] .module-picker-empty-msg { color: #6b7280; }
+[data-theme="light"] .module-picker-chest-hint { color: #6b7280; }
+/* Conv item action button and context menu */
+[data-theme="light"] .conv-more {
+  background: #e8eaf0;
+  border-color: rgba(0,0,0,.1);
+  color: #1a1d23;
+}
+[data-theme="light"] .conv-more:hover { background: #dde0e8; }
+[data-theme="light"] .conv-menu {
+  background: #ffffff;
+  border-color: rgba(0,0,0,.12);
+  box-shadow: 0 8px 20px rgba(0,0,0,.12);
+}
+[data-theme="light"] .conv-menu .menu-item { color: #1a1d23; }
+[data-theme="light"] .conv-menu .menu-item:hover { background: rgba(0,0,0,.05); }
+[data-theme="light"] .conv-menu .menu-item.delete { color: #dc2626; }
+[data-theme="light"] .history-dialog .history-inner {
+  background: #ffffff;
+  color: #1a1d23;
+}
+[data-theme="light"] .history-table th {
+  background: #f0f2f5;
+  color: #6b7280;
+}
+[data-theme="light"] .history-table td { border-bottom-color: rgba(0,0,0,.06); }
+
+/* ====== Topbar título dinâmico ====== */
+.topbar-title-area {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  overflow: hidden;
+  margin-left: 50px;
+  flex-shrink: 1;
+}
+.topbar-module-icon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+}
+.topbar-module-icon svg,
+.topbar-module-icon img {
+  width: 36px;
+  height: 36px;
+}
+.topbar-conv-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ====== Saldo: rótulo + itens ====== */
+.coin-balance-label {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 500;
+  white-space: nowrap;
+  margin-right: 4px;
+}
+.coin-item { font-size: 12px; font-weight: 600; white-space: nowrap; }
+
+/* ====== Saldo de módulos na Topbar ====== */
+.module-balance {
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 12px; height: 40px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.module-balance-label { font-size: 12px; color: var(--muted); font-weight: 500; }
+.module-balance-count { font-size: 12px; font-weight: 600; }
+.module-balance-count.available { color: #a78bfa; }
+
+/* ====== Seletor de tema (dropdown) ====== */
+.theme-dropdown-wrap {
+  position: relative;
+}
+.theme-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 999px;
+  padding: 0 12px;
+  height: 40px;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.theme-toggle-btn:hover { filter: brightness(1.15); }
+.theme-icon { font-size: 14px; }
+.theme-label { font-size: 12px; }
+.theme-chevron { font-size: 10px; opacity: .65; margin-left: 1px; }
+
+.theme-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 140px;
+  background: var(--panel);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.35);
+  z-index: 200;
+  overflow: hidden;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.theme-menu[hidden] { display: none; }
+.theme-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+}
+.theme-menu button:hover { background: rgba(255,255,255,.06); }
+.theme-menu button.active { background: rgba(86,151,255,.15); color: var(--accent); font-weight: 600; }
+
+/* ====== Avatar com dropdown (novo) ====== */
+.user-avatar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #1b1f26;
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 999px;
+  padding: 4px 10px 4px 4px;
+  cursor: pointer;
+  color: #d8dee9;
+}
+.user-avatar-btn:hover { filter: brightness(1.1); }
+.user-initials {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  display: grid; place-items: center;
+  font-weight: 700; font-size: 13px;
+}
+.user-chevron { font-size: 11px; opacity: .7; }
+
+/* ====== Menu do usuário (atualizado) ====== */
+.user-menu-header {
+  padding: 10px 14px 8px;
+  display: grid;
+  gap: 2px;
+}
+.user-menu-name  { font-weight: 700; font-size: 14px; }
+.user-menu-email { font-size: 12px; color: var(--muted); }
+.user-menu-sep {
+  height: 1px;
+  background: rgba(255,255,255,.08);
+  margin: 2px 0;
+}
+[data-theme="light"] .user-menu-sep { background: rgba(0,0,0,.08); }
+
+/* ====== Dialog: Histórico de consumo ====== */
+.history-dialog {
+  border: none;
+  border-radius: 16px;
+  padding: 0;
+  background: transparent;
+  box-shadow: 0 20px 60px rgba(0,0,0,.5);
+  max-width: 820px;
+  width: 92vw;
+}
+.history-dialog::backdrop { background: rgba(0,0,0,.55); }
+.history-inner {
+  background: var(--panel);
+  border-radius: 16px;
+  padding: 24px;
+  display: grid;
+  gap: 14px;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.history-head h3 { margin: 0; font-size: 17px; }
+.history-close {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+.history-close:hover { background: rgba(255,255,255,.08); }
+[data-theme="light"] .history-close:hover { background: rgba(0,0,0,.06); }
+.history-search input {
+  width: 100%;
+  background: var(--panel-2);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: var(--text);
+  font-size: 14px;
+}
+[data-theme="light"] .history-search input { border-color: rgba(0,0,0,.12); }
+.history-msg { color: var(--muted); text-align: center; padding: 24px 0; margin: 0; }
+.history-table-wrap { overflow-x: auto; flex: 1; overflow-y: auto; }
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.history-table th {
+  text-align: left;
+  padding: 8px 10px;
+  background: rgba(255,255,255,.04);
+  color: var(--muted);
+  font-weight: 600;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  white-space: nowrap;
+}
+.history-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+  vertical-align: middle;
+}
+.history-table tr:last-child td { border-bottom: none; }
+.history-table tr:hover td { background: rgba(255,255,255,.03); }
+[data-theme="light"] .history-table tr:hover td { background: rgba(0,0,0,.02); }
+.tx-date  { white-space: nowrap; color: var(--muted); font-size: 12px; }
+.tx-desc  { color: var(--muted); font-size: 12px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tx-muted { color: var(--muted); }
+.tx-pos   { color: #22c55e; font-weight: 700; white-space: nowrap; }
+.tx-neg   { color: #f87171; font-weight: 700; white-space: nowrap; }
+.tx-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.tx-admin_credit { background: rgba(34,197,94,.15); color: #22c55e; }
+.tx-message_debit { background: rgba(248,113,113,.15); color: #f87171; }
+.tx-chest_purchase { background: rgba(234,179,8,.15); color: #ca8a04; }
+.history-pages {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.history-pages button {
+  background: var(--panel-2);
+  border: 1px solid rgba(255,255,255,.12);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 15px;
+}
+.history-pages button:disabled { opacity: .35; cursor: default; }
+[data-theme="light"] .history-pages button { border-color: rgba(0,0,0,.12); }
+
+
+.amaracyta-symbol { color: #f3f3f3; }   /* ótimo em fundo preto */
+body.light .amaracyta-symbol { color: #333; } /* exemplo para tema claro */
+
+/* ====== Página: Perfil e Configurações ====== */
+.profile-page {
+  min-height: 100dvh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 40px 16px 64px;
+}
+.profile-container {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  display: grid;
+  gap: 24px;
+}
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.profile-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,.14);
+  color: var(--muted);
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: color .15s, border-color .15s;
+  flex-shrink: 0;
+}
+.profile-back-btn:hover { color: var(--text); border-color: rgba(255,255,255,.28); }
+.profile-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+}
+.profile-card {
+  background: var(--panel);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: var(--radius);
+  padding: 24px;
+  display: grid;
+  gap: 20px;
+}
+.profile-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.profile-card-icon { font-size: 26px; line-height: 1; }
+.profile-card-title {
+  margin: 0 0 2px;
+  font-size: 17px;
+  font-weight: 700;
+}
+.profile-card-sub { margin: 0; font-size: 13px; color: var(--muted); }
+.profile-form {
+  display: grid;
+  gap: 14px;
+}
+.profile-label {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.profile-input {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 15px;
+  width: 100%;
+  outline: none;
+  transition: border-color .15s;
+}
+.profile-input:focus { border-color: var(--accent); }
+.profile-msg {
+  margin: 0;
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+.profile-msg-ok  { background: rgba(34,197,94,.12); color: #4ade80; }
+.profile-msg-err { background: rgba(239,68,68,.12);  color: #fca5a5; }
+.profile-form-actions { display: flex; justify-content: flex-end; }
+.profile-btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 20px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+.profile-btn-primary:hover:not(:disabled) { opacity: .88; }
+.profile-btn-primary:disabled { opacity: .45; cursor: default; }
+
+/* Light theme overrides */
+[data-theme="light"] .profile-back-btn { border-color: rgba(0,0,0,.14); color: #6b7280; }
+[data-theme="light"] .profile-back-btn:hover { color: #1a1d23; border-color: rgba(0,0,0,.28); }
+[data-theme="light"] .profile-card { background: #fff; border-color: rgba(0,0,0,.09); }
+[data-theme="light"] .profile-input { background: #f7f8fa; border-color: rgba(0,0,0,.14); color: #1a1d23; }
+[data-theme="light"] .profile-input:focus { border-color: var(--accent); }
+[data-theme="light"] .profile-label { color: #6b7280; }
+
+@media (max-width: 600px) {
+  .profile-page { padding: 20px 12px 48px; }
+  .profile-title { font-size: 18px; }
+  .profile-card { padding: 18px 16px; }
+}
+
+/* ====== SweetAlert2: ajustes visuais ====== */
+.swal2-popup { font-family: inherit !important; border-radius: 14px !important; }
+.swal2-title { font-size: 18px !important; font-weight: 700 !important; }
+.swal2-html-container { font-size: 14px !important; }
+.swal-cancel-btn { color: var(--muted) !important; }
+
+/* ====================================================================
+   STORE — Loja de Baús
+   ==================================================================== */
+.store-page {
+  min-height: 100dvh;
+  overflow-y: auto;
+  background: var(--bg);
+  color: var(--text);
+  padding: 32px 20px 64px;
+}
+.store-page-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.store-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 14px;
+  padding: 7px 14px;
+  cursor: pointer;
+  margin-bottom: 32px;
+  transition: color .15s, border-color .15s;
+}
+.store-back-btn:hover { color: var(--text); border-color: rgba(255,255,255,.28); }
+
+.store-header { text-align: center; margin-bottom: 48px; }
+.store-title { font-size: 28px; font-weight: 700; margin: 0 0 8px; }
+.store-subtitle { color: var(--muted); font-size: 16px; margin: 0; }
+.store-no-balance-alert {
+  display: inline-block;
+  margin-top: 16px;
+  background: rgba(239,68,68,.14);
+  border: 1px solid rgba(239,68,68,.3);
+  color: #fca5a5;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.store-all-owned-notice {
+  display: block;
+  margin-bottom: 20px;
+  background: rgba(34,197,94,.12);
+  border: 1px solid rgba(34,197,94,.3);
+  color: #86efac;
+  border-radius: 10px;
+  padding: 12px 18px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+[data-theme="light"] .store-all-owned-notice {
+  background: rgba(34,197,94,.1);
+  border-color: rgba(34,197,94,.35);
+  color: #15803d;
+}
+.store-loading, .store-empty {
+  text-align: center;
+  color: var(--muted);
+  font-size: 16px;
+  margin-top: 60px;
+}
+
+/* Grid de cards */
+.store-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+
+/* Card base */
+.store-card {
+  position: relative;
+  border-radius: 20px;
+  padding: 36px 28px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid rgba(255,255,255,.1);
+  transition: transform .2s, box-shadow .2s;
+}
+.store-card:hover { transform: translateY(-4px); box-shadow: 0 20px 48px rgba(0,0,0,.5); }
+
+/* Variantes de cor por tipo de moeda */
+.store-card-bronze {
+  background: linear-gradient(145deg, #1a1008, #2a1a0c);
+  border-color: rgba(180,110,50,.25);
+}
+.store-card-silver {
+  background: linear-gradient(145deg, #121824, #1b2538);
+  border-color: rgba(100,150,220,.3);
+}
+.store-card-gold {
+  background: linear-gradient(145deg, #1a1500, #2a2008);
+  border-color: rgba(220,180,50,.25);
+}
+
+/* Card destaque (featured) */
+.store-card-featured {
+  transform: scale(1.04);
+  box-shadow: 0 24px 60px rgba(0,0,0,.6);
+  border-width: 2px;
+}
+.store-card-silver.store-card-featured { border-color: #5697ff; }
+.store-card-gold.store-card-featured   { border-color: #d4af37; }
+.store-card-bronze.store-card-featured { border-color: #cd7f32; }
+.store-card-featured:hover { transform: scale(1.04) translateY(-4px); }
+
+/* Badge "Mais Popular" */
+.store-card-badge {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(90deg, #3b82f6, #6366f1);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 16px;
+  border-radius: 999px;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(59,130,246,.4);
+}
+
+/* Ícone do tipo de moeda */
+.store-card-icon-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+.chest-svg {
+  width: 120px;
+  height: 100px;
+  filter: drop-shadow(0 6px 18px rgba(0,0,0,.55));
+  transition: transform .25s ease, filter .25s ease;
+}
+.store-card:hover .chest-svg {
+  transform: translateY(-4px) scale(1.05);
+  filter: drop-shadow(0 12px 28px rgba(0,0,0,.65));
+}
+.chest-custom-img {
+  width: 120px;
+  height: 100px;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 18px rgba(0,0,0,.45));
+  transition: transform .25s ease, filter .25s ease;
+}
+.store-card:hover .chest-custom-img {
+  transform: translateY(-4px) scale(1.05);
+  filter: drop-shadow(0 12px 28px rgba(0,0,0,.6));
+}
+
+/* Textos do card */
+.store-card-name {
+  font-size: 22px;
+  font-weight: 700;
+  text-align: center;
+  margin: 0 0 4px;
+}
+.store-card-coin-label {
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0 0 20px;
+}
+
+/* Preço */
+.store-card-price-wrap {
+  text-align: center;
+  margin-bottom: 24px;
+}
+.store-card-price {
+  display: block;
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 1;
+}
+.store-card-period {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Features */
+.store-card-features {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.store-card-features li { display: flex; align-items: flex-start; gap: 8px; }
+.feature-check { color: #4ade80; font-weight: 700; flex-shrink: 0; }
+
+/* Botão CTA */
+.store-card-btn {
+  width: 100%;
+  padding: 13px 0;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  background: rgba(255,255,255,.12);
+  color: #fff;
+  transition: background .15s, transform .1s;
+  margin-top: auto;
+}
+.store-card-btn:hover { background: rgba(255,255,255,.2); transform: translateY(-1px); }
+.store-card-btn:active { transform: translateY(0); }
+.store-card-featured .store-card-btn {
+  background: #fff;
+  color: #0b1220;
+}
+.store-card-featured .store-card-btn:hover { background: #e8efff; }
+
+/* Disclaimer */
+.store-disclaimer {
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 48px;
+}
+
+/* Botão "Comprar moedas" na topbar */
+.coin-buy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(90deg, #3b82f6, #6366f1);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 5px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(59,130,246,.3);
+  transition: opacity .15s;
+}
+.coin-buy-btn:hover { opacity: .88; }
+
+/* Link "Comprar moedas →" no hint do composer */
+.hint-buy-link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: inherit;
+  padding: 0;
+  cursor: pointer;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.hint-buy-link:hover { opacity: .8; }
+
+/* Light theme */
+[data-theme="light"] .store-page { background: #f0f4f8; color: #1a1d23; }
+[data-theme="light"] .store-back-btn { border-color: rgba(0,0,0,.14); color: #6b7280; }
+[data-theme="light"] .store-back-btn:hover { color: #1a1d23; border-color: rgba(0,0,0,.28); }
+[data-theme="light"] .store-card-bronze { background: linear-gradient(145deg, #fdf6ee, #fff3e0); border-color: rgba(180,110,50,.25); }
+[data-theme="light"] .store-card-silver { background: linear-gradient(145deg, #f0f4ff, #e8f0fe); border-color: rgba(59,130,246,.2); }
+[data-theme="light"] .store-card-gold   { background: linear-gradient(145deg, #fffbeb, #fef9c3); border-color: rgba(220,180,50,.3); }
+[data-theme="light"] .store-card-name   { color: #1a1d23; }
+[data-theme="light"] .store-card-price  { color: #1a1d23; }
+[data-theme="light"] .store-card-features { color: #6b7280; }
+[data-theme="light"] .store-card-btn    { background: #1f994c;; color: #fff; }
+[data-theme="light"] .store-card-btn:hover { background: #16a34a; }
+[data-theme="light"] .store-card-featured .store-card-btn { background: #1a2540; color: #fff; }
+[data-theme="light"] .store-card-featured .store-card-btn:hover { background: #253358; }
+
+@media (max-width: 600px) {
+  .store-title { font-size: 22px; }
+  .store-grid  { grid-template-columns: 1fr; }
+  .store-card-featured { transform: none; }
+  .store-card-featured:hover { transform: translateY(-4px); }
+  .store-page { padding: 20px 12px 48px; }
+}
+
+/* ====================================================================
+   CHECKOUT
+   ==================================================================== */
+.checkout-page {
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--text);
+  padding: 32px 20px 64px;
+  overflow-y: auto;
+}
+.checkout-inner {
+  max-width: 860px;
+  margin: 0 auto;
+}
+.checkout-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 32px;
+}
+.checkout-layout {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 28px;
+  align-items: start;
+}
+.checkout-err {
+  text-align: center;
+  color: var(--muted);
+}
+.checkout-err button {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* Resumo */
+.checkout-summary {
+  background: var(--panel);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 16px;
+  padding: 24px;
+}
+.checkout-summary h3 {
+  margin: 0 0 16px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.checkout-summary-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: rgba(255,255,255,.05);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 16px;
+}
+.cs-icon { font-size: 32px; flex-shrink: 0; }
+.cs-info { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.cs-info strong { font-size: 15px; }
+.cs-info span { font-size: 13px; color: var(--muted); }
+.cs-price { font-size: 18px; font-weight: 700; flex-shrink: 0; }
+.checkout-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 16px;
+  padding: 12px 0 0;
+  border-top: 1px solid rgba(255,255,255,.08);
+}
+.checkout-total strong { font-size: 20px; }
+.checkout-sim-notice {
+  margin: 14px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* Formulário de pagamento */
+.checkout-form {
+  background: var(--panel);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 16px;
+  padding: 24px;
+}
+.checkout-form h3 {
+  margin: 0 0 16px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+/* Tabs de método */
+.pay-method-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.pay-method-tab {
+  flex: 1;
+  padding: 10px 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.04);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.pay-method-tab.active {
+  background: rgba(86,151,255,.15);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Campos do cartão */
+.pay-card-fields { display: flex; flex-direction: column; gap: 14px; }
+.pay-field { display: flex; flex-direction: column; gap: 5px; }
+.pay-field label { font-size: 13px; color: var(--muted); }
+.pay-field input {
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 8px;
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  padding: 10px 12px;
+  outline: none;
+  transition: border-color .15s;
+}
+.pay-field input:focus { border-color: var(--accent); }
+.pay-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* PIX */
+.pay-pix { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 8px 0; }
+.pay-pix-qr { padding: 8px; }
+.pix-qr-placeholder {
+  width: 160px; height: 160px;
+  border: 2px dashed rgba(255,255,255,.2);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 36px;
+  color: var(--muted);
+}
+.pix-qr-placeholder small { font-size: 12px; }
+.pay-pix-info { font-size: 13px; color: var(--muted); text-align: center; max-width: 280px; }
+
+/* Boleto */
+.pay-boleto { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 8px 0; }
+.pay-boleto-bar {
+  background: #fff;
+  border-radius: 8px;
+  padding: 16px 24px;
+  text-align: center;
+  width: 100%;
+}
+.boleto-line { font-family: monospace; font-size: 13px; color: #000; letter-spacing: 1px; }
+.pay-boleto-bar small { display: block; color: #666; font-size: 11px; margin-top: 8px; }
+.pay-boleto-info { font-size: 13px; color: var(--muted); text-align: center; max-width: 280px; }
+
+/* Botão pagar */
+.checkout-pay-btn {
+  width: 100%;
+  margin-top: 24px;
+  padding: 15px;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(90deg, #3b82f6, #6366f1);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity .15s;
+  box-shadow: 0 6px 20px rgba(59,130,246,.35);
+}
+.checkout-pay-btn:hover:not(:disabled) { opacity: .9; }
+.checkout-pay-btn:disabled { opacity: .7; cursor: not-allowed; }
+
+.checkout-processing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.checkout-spinner {
+  display: inline-block;
+  width: 16px; height: 16px;
+  border: 2px solid rgba(255,255,255,.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Light theme checkout */
+[data-theme="light"] .checkout-page { background: #f0f4f8; color: #1a1d23; }
+[data-theme="light"] .checkout-summary,
+[data-theme="light"] .checkout-form { background: #fff; border-color: rgba(0,0,0,.09); }
+[data-theme="light"] .checkout-summary-card { background: rgba(0,0,0,.04); }
+[data-theme="light"] .checkout-total { border-color: rgba(0,0,0,.1); }
+[data-theme="light"] .pay-method-tab { background: rgba(0,0,0,.04); border-color: rgba(0,0,0,.12); color: #6b7280; }
+[data-theme="light"] .pay-method-tab.active { background: rgba(59,130,246,.1); }
+[data-theme="light"] .pay-field input { background: #f7f8fa; border-color: rgba(0,0,0,.14); color: #1a1d23; }
+[data-theme="light"] .pix-qr-placeholder { border-color: rgba(0,0,0,.18); color: #9ca3af; }
+
+@media (max-width: 680px) {
+  .checkout-layout { grid-template-columns: 1fr; }
+  .pay-method-tabs { flex-wrap: wrap; }
+  .pay-method-tab { font-size: 12px; padding: 9px 6px; }
+  .checkout-page { padding: 20px 12px 48px; }
+}
+
+/* ====================================================================
+   PURCHASE SUCCESS
+   ==================================================================== */
+.success-page {
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+}
+.success-inner {
+  max-width: 440px;
+  width: 100%;
+  text-align: center;
+}
+
+/* Ícone animado */
+.success-icon-wrap {
+  margin-bottom: 24px;
+}
+.success-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
+  font-size: 40px;
+  font-weight: 700;
+  box-shadow: 0 12px 36px rgba(34,197,94,.4);
+  animation: pop-in .4s cubic-bezier(.175,.885,.32,1.275) both;
+}
+@keyframes pop-in {
+  from { transform: scale(.5); opacity: 0; }
+  to   { transform: scale(1);  opacity: 1; }
+}
+
+.success-title {
+  font-size: 26px;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+.success-subtitle {
+  color: var(--muted);
+  font-size: 15px;
+  margin: 0 0 32px;
+}
+
+/* Card de detalhes */
+.success-detail-card {
+  background: var(--panel);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 14px;
+  padding: 20px;
+  margin-bottom: 16px;
+  text-align: left;
+}
+.sdc-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255,255,255,.07);
+  gap: 12px;
+}
+.sdc-row:last-child { border-bottom: none; }
+.sdc-label { color: var(--muted); font-size: 13px; }
+.sdc-value { font-size: 14px; font-weight: 600; text-align: right; }
+
+/* Card de saldo */
+.success-balance-card {
+  background: var(--panel);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 14px;
+  padding: 20px;
+  margin-bottom: 28px;
+}
+.success-balance-card h3 { font-size: 14px; color: var(--muted); margin: 0 0 12px; text-transform: uppercase; letter-spacing: .04em; }
+.success-balance-items { display: flex; flex-direction: column; gap: 8px; }
+.sb-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.sb-zero { color: var(--muted); font-size: 14px; }
+
+/* Ações */
+.success-actions { display: flex; flex-direction: column; gap: 12px; }
+.success-btn-primary {
+  padding: 14px;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(90deg, #3b82f6, #6366f1);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity .15s;
+  box-shadow: 0 6px 20px rgba(59,130,246,.35);
+}
+.success-btn-primary:hover { opacity: .9; }
+.success-btn-secondary {
+  padding: 13px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.14);
+  background: transparent;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.success-btn-secondary:hover { background: rgba(255,255,255,.06); color: var(--text); }
+
+/* Light theme success */
+[data-theme="light"] .success-page { background: #f0f4f8; color: #1a1d23; }
+[data-theme="light"] .success-detail-card,
+[data-theme="light"] .success-balance-card { background: #fff; border-color: rgba(0,0,0,.09); }
+[data-theme="light"] .sdc-row { border-color: rgba(0,0,0,.08); }
+[data-theme="light"] .success-btn-secondary { border-color: rgba(0,0,0,.18); color: #6b7280; }
+[data-theme="light"] .success-btn-secondary:hover { background: rgba(0,0,0,.05); color: #1a1d23; }
+
+/* ── Store Tabs ────────────────────────────────────────────── */
+.store-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 16px 0 24px;
+  border-bottom: 2px solid rgba(255,255,255,.08);
+  padding-bottom: 0;
+}
+.store-tab-btn {
+  padding: 10px 24px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 8px 8px 0 0;
+  transition: color .15s, border-color .15s;
+}
+.store-tab-btn.active { color: var(--text); border-bottom-color: #a78bfa; }
+.store-tab-btn:hover:not(.active) { color: var(--text); }
+
+/* ── Module Store Cards ────────────────────────────────────── */
+.modules-store { width: 100%; }
+.module-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+.module-store-card {
+  position: relative;
+  background: rgba(255,255,255,.05);
+  border: 2px solid rgba(255,255,255,.08);
+  border-radius: 14px;
+  padding: 20px 16px 16px;
+  cursor: default;
+  transition: border-color .2s, background .2s, transform .15s;
+  text-align: center;
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+}
+.module-store-card:hover { border-color: rgba(167,139,250,.4); background: rgba(167,139,250,.06); transform: translateY(-2px); }
+.module-store-card.module-card-selected { border-color: #a78bfa; background: rgba(167,139,250,.12); }
+.module-card-owned-badge {
+  position: absolute; top: 10px; right: 10px;
+  background: #16a34a; color: #fff; font-size: 11px; font-weight: 700;
+  padding: 2px 8px; border-radius: 20px;
+}
+.module-card-check {
+  position: absolute; top: 10px; right: 10px;
+  background: #a78bfa; color: #fff; font-size: 12px; font-weight: 700;
+  width: 22px; height: 22px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+.module-card-img { max-height: 64px; margin: 0 auto 10px; display: flex; justify-content: center; }
+.module-card-img svg { max-height: 64px; }
+.module-card-name { font-size: 15px; font-weight: 700; margin: 0 0 6px; }
+.module-card-desc { font-size: 12px; color: var(--muted); margin: 0 0 10px; }
+.module-card-price { font-size: 16px; font-weight: 700; color: #a78bfa; margin-bottom: 12px; }
+/* Stepper +/- para quantidade de módulos */
+.module-qty-stepper {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  margin-top: auto;
+}
+.module-qty-btn {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: rgba(167,139,250,.15); border: 1px solid rgba(167,139,250,.4);
+  color: #a78bfa; font-size: 18px; font-weight: 700; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; line-height: 1;
+  transition: background .15s;
+}
+.module-qty-btn:hover:not(:disabled) { background: rgba(167,139,250,.3); }
+.module-qty-btn:disabled { opacity: .35; cursor: default; }
+.module-qty-value { font-size: 18px; font-weight: 800; min-width: 24px; text-align: center; }
+
+/* ── Module Purchase Summary ───────────────────────────────── */
+.module-purchase-summary {
+  background: rgba(167,139,250,.08);
+  border: 1px solid rgba(167,139,250,.25);
+  border-radius: 14px;
+  padding: 20px 24px;
+  margin-bottom: 24px;
+}
+.module-summary-info {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 16px; margin-bottom: 8px;
+}
+.module-summary-price { font-size: 22px; font-weight: 800; color: #a78bfa; }
+.module-summary-hint { font-size: 13px; color: #fbbf24; margin-bottom: 14px; }
+.module-buy-btn { width: 100%; margin-top: 12px; }
+
+/* ── Module Packages Info ──────────────────────────────────── */
+.module-packages-info { margin-top: 28px; }
+.module-packages-info h4 { font-size: 14px; font-weight: 600; color: var(--muted); margin-bottom: 12px; text-transform: uppercase; letter-spacing: .05em; }
+.module-packages-list { display: flex; flex-wrap: wrap; gap: 10px; }
+.module-package-item {
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08);
+  border-radius: 10px; padding: 10px 16px; font-size: 14px;
+}
+.pkg-price { font-weight: 800; color: #a78bfa; }
+.pkg-desc { font-size: 12px; color: var(--muted); }
+
+/* Light theme */
+[data-theme="light"] .store-tabs { border-bottom-color: rgba(0,0,0,.1); }
+[data-theme="light"] .store-tab-btn { color: #6b7280; }
+[data-theme="light"] .store-tab-btn.active { color: #1a1d23; }
+[data-theme="light"] .module-store-card { background: #fff; border-color: #e5e7eb; }
+[data-theme="light"] .module-store-card:hover { border-color: #a78bfa; background: #f5f3ff; }
+[data-theme="light"] .module-store-card.module-card-selected { border-color: #7c3aed; background: #ede9fe; }
+[data-theme="light"] .module-purchase-summary { background: #f5f3ff; border-color: #c4b5fd; }
+[data-theme="light"] .module-package-item { background: #fff; border-color: #e5e7eb; }
+[data-theme="light"] .module-balance { background: #f5f3ff; border-color: #c4b5fd; }
+[data-theme="light"] .module-qty-btn { background: #ede9fe; border-color: #c4b5fd; }
+
+/* ── Internal Nav (sidebar for internal pages) ─────────────── */
+.internal-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 8px;
+  flex: 1;
+}
+.internal-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 14px;
+  transition: background 0.15s;
+  cursor: pointer;
+}
+.internal-nav-item:hover { background: rgba(255,255,255,0.08); }
+.internal-nav-item.active {
+  background: rgba(167,139,250,0.18);
+  color: #a78bfa;
+  font-weight: 600;
+}
+.internal-nav-icon { font-size: 16px; flex-shrink: 0; }
+.internal-nav-divider { height: 1px; background: var(--border); margin: 6px 4px; }
+
+[data-theme="light"] .internal-nav-item:hover { background: rgba(0,0,0,0.05); }
+[data-theme="light"] .internal-nav-item.active { background: #ede9fe; color: #7c3aed; }
+
+/* ── Internal content area ─────────────────────────────────── */
+.internal-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── History page ──────────────────────────────────────────── */
+.history-page { flex: 1; display: flex; flex-direction: column; }
+.history-container {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  display: grid;
+  gap: 24px;
+}
+.history-page-head h2 { margin: 0; font-size: 22px; font-weight: 700; }
+
+/* ── Children page ─────────────────────────────────────────── */
+.children-form-section { border-top: 1px solid rgba(255,255,255,.08); padding-top: 20px; margin-top: 4px; }
+.children-form-title { margin: 0 0 16px; font-size: 15px; font-weight: 600; }
+.children-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+}
+.children-item-info { display: flex; align-items: flex-start; gap: 12px; }
+.children-item-avatar { font-size: 28px; line-height: 1; }
+.children-item-name { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
+.children-item-sub { font-size: 13px; color: var(--muted); }
+.children-item-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.children-edit-btn, .children-delete-btn, .children-cancel-btn {
+  border: 1px solid rgba(255,255,255,.14); background: transparent; color: var(--text);
+  border-radius: 8px; padding: 6px 14px; font-size: 13px; cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.children-edit-btn:hover { border-color: var(--accent); color: var(--accent); }
+.children-delete-btn { color: #f87171; border-color: rgba(248,113,113,.3); }
+.children-delete-btn:hover { background: rgba(248,113,113,.1); }
+.children-cancel-btn:hover { background: rgba(255,255,255,.06); }
+[data-theme="light"] .children-edit-btn { border-color: rgba(0,0,0,.14); color: #374151; }
+[data-theme="light"] .children-edit-btn:hover { border-color: var(--accent); color: var(--accent); }
+[data-theme="light"] .children-delete-btn { border-color: rgba(220,38,38,.25); }
+[data-theme="light"] .children-cancel-btn { border-color: rgba(0,0,0,.14); color: #374151; }
+[data-theme="light"] .children-form-section { border-top-color: rgba(0,0,0,.08); }
+
+/* ── Person picker (ModulePicker step 1) ───────────────────── */
+.person-picker-grid {
+  display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin: 8px 0 16px;
+}
+.person-card {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  background: var(--panel-2); border: 2px solid rgba(255,255,255,.1);
+  border-radius: 14px; padding: 18px 22px; cursor: pointer;
+  transition: border-color .15s, transform .1s; min-width: 110px;
+}
+.person-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.person-card-avatar { font-size: 32px; line-height: 1; }
+.person-card-name { font-size: 14px; font-weight: 700; text-align: center; max-width: 120px; }
+.person-card-label { font-size: 12px; color: var(--muted); text-align: center; max-width: 120px; }
+.module-picker-back {
+  background: transparent; border: 1px solid rgba(255,255,255,.14); color: var(--muted);
+  border-radius: 8px; padding: 7px 16px; font-size: 14px; cursor: pointer; margin-top: 8px;
+  transition: color .15s, border-color .15s;
+}
+.module-picker-back:hover { color: var(--text); border-color: rgba(255,255,255,.28); }
+[data-theme="light"] .person-card { background: #f7f8fa; border-color: rgba(0,0,0,.1); }
+[data-theme="light"] .module-picker-back { border-color: rgba(0,0,0,.14); color: #6b7280; }
+[data-theme="light"] .module-picker-back:hover { color: #1a1d23; }
+
+/* Theme selector on ProfileDataPage */
+.theme-selector-row {
+  display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px;
+}
+.theme-option-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 14px 24px; border-radius: 12px;
+  background: rgba(255,255,255,.05); border: 2px solid rgba(255,255,255,.1);
+  cursor: pointer; color: var(--text); transition: border-color .2s, background .2s;
+  min-width: 100px;
+}
+.theme-option-btn:hover { border-color: rgba(167,139,250,.4); background: rgba(167,139,250,.07); }
+.theme-option-btn.active { border-color: #a78bfa; background: rgba(167,139,250,.15); }
+.theme-option-icon { font-size: 24px; }
+.theme-option-label { font-size: 13px; font-weight: 600; }
+[data-theme="light"] .theme-option-btn { background: #f9fafb; border-color: #e5e7eb; }
+[data-theme="light"] .theme-option-btn:hover { border-color: #a78bfa; background: #f5f3ff; }
+[data-theme="light"] .theme-option-btn.active { border-color: #7c3aed; background: #ede9fe; }
+
+/* Logo img in Topbar */
+.topbar-logo-img { height: 36px; width: auto; object-fit: contain; }

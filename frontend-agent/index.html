@@ -1,0 +1,21 @@
+
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+	  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Amaracytã</title>
+  </head>
+  <script>
+    (function() {
+      var t = localStorage.getItem('theme') || 'light';
+      if (t !== 'system') document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+  <body class="card-agent">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
