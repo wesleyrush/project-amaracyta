@@ -1,0 +1,12 @@
+node_modules/
+.venv/
+__pycache__/
+.tmp.driveupload/
+mobile/android/.gradle/
+mobile/android/app/build/
+mobile/android/build/
+mobile/.expo/
+backend-admin/uploads/
+example/
+.vscode/
+.claude/
