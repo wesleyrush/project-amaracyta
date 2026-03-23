@@ -17,8 +17,12 @@ export async function listModulePackages(): Promise<{ items: ModulePackage[] }> 
 }
 
 export async function purchaseModules(
-  module_quantities: Record<number, number>,
-  payment_method: string,
-): Promise<void> {
-  await apiClient.post('/modules/purchase', { module_quantities, payment_method });
+  moduleQuantities: Record<number, number>,
+  paymentMethod: string,
+): Promise<{ status: string; order_id: number; quantity: number; price_brl: number; modules: { id: number; name: string }[] }> {
+  const res = await apiClient.post('/modules/purchase', {
+    module_quantities: moduleQuantities,
+    payment_method: paymentMethod,
+  });
+  return res.data;
 }

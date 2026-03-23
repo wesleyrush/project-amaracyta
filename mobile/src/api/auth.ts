@@ -5,24 +5,25 @@ import type { User } from '../types';
 export async function login(email: string, password: string): Promise<User> {
   await ensureCsrf();
   const res = await apiClient.post<{ user: User; access_token: string }>('/auth/login', { email, password });
-  if (res.data.access_token) {
-    await AsyncStorage.setItem('AUTH_TOKEN', res.data.access_token);
-  }
-  return res.data.user ?? res.data as any;
+  if (res.data.access_token) await AsyncStorage.setItem('AUTH_TOKEN', res.data.access_token);
+  return res.data.user ?? (res.data as any);
 }
 
 export async function register(payload: {
   email: string;
   password: string;
-  full_name?: string;
-  birth_date?: string;
+  full_name?: string | null;
+  initiatic_name?: string | null;
+  birth_date?: string | null;
+  birth_time?: string | null;
+  birth_country?: string | null;
+  birth_state?: string | null;
+  birth_city?: string | null;
 }): Promise<User> {
   await ensureCsrf();
   const res = await apiClient.post<{ user: User; access_token: string }>('/auth/register', payload);
-  if (res.data.access_token) {
-    await AsyncStorage.setItem('AUTH_TOKEN', res.data.access_token);
-  }
-  return res.data.user ?? res.data as any;
+  if (res.data.access_token) await AsyncStorage.setItem('AUTH_TOKEN', res.data.access_token);
+  return res.data.user ?? (res.data as any);
 }
 
 export async function me(): Promise<User> {
@@ -32,9 +33,7 @@ export async function me(): Promise<User> {
 
 export async function refresh(): Promise<void> {
   const res = await apiClient.post<{ access_token: string }>('/auth/refresh');
-  if (res.data.access_token) {
-    await AsyncStorage.setItem('AUTH_TOKEN', res.data.access_token);
-  }
+  if (res.data.access_token) await AsyncStorage.setItem('AUTH_TOKEN', res.data.access_token);
 }
 
 export async function logout(): Promise<void> {
@@ -47,15 +46,7 @@ export async function getProfile(): Promise<User> {
   return res.data;
 }
 
-export async function putProfile(data: {
-  full_name?: string;
-  initiatic_name?: string;
-  birth_date?: string;
-  birth_time?: string;
-  birth_country?: string;
-  birth_state?: string;
-  birth_city?: string;
-}): Promise<User> {
+export async function putProfile(data: Partial<User>): Promise<User> {
   const res = await apiClient.put<User>('/auth/profile', data);
   return res.data;
 }

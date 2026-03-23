@@ -1,0 +1,30 @@
+cd /Users/wesleysousa/Desktop/Projetos/Mobile
+
+# Limpeza total
+rm -rf node_modules ios
+npm cache clean --force
+
+# Instala tudo do zero
+npm install --legacy-peer-deps
+
+# Instala reanimated 4.1.x + worklets compatível (versão 2.x)
+npx expo install react-native-reanimated@~4.1.1 react-native-worklets-core@~2.0.0
+
+# Prebuild + pods
+npx expo prebuild --platform ios --clean
+cd ios && pod install && cd ..
+npx expo run:ios
+
+A versão estável 2.0.0 não existe ainda — só betas. Instale a beta mais recente diretamente:
+
+
+npm install react-native-worklets-core@2.0.0-beta.4 --legacy-peer-deps
+Depois:
+
+
+npx expo prebuild --platform ios --clean
+cd ios && pod install && cd ..
+npx expo run:ios
+
+
+Tem uma regra de negócio que não está sendo aplicada. Ao selecionar módulos do tipo "Valor fixo" o cliente não pode consetuir enviar mensagens. 

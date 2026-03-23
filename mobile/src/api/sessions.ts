@@ -23,3 +23,8 @@ export async function patchTitle(cid: string, title: string): Promise<void> {
 export async function deleteSession(cid: string): Promise<void> {
   await apiClient.delete(`/sessions/${cid}`);
 }
+
+export async function flowAdvance(cid: string): Promise<{ flow_step: number; flow_next_button: string | null }> {
+  const res = await apiClient.post<{ flow_step: number; flow_next_button: string | null }>(`/sessions/${cid}/flow-advance`);
+  return res.data;
+}

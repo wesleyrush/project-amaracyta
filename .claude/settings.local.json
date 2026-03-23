@@ -21,7 +21,17 @@
       "Bash(dir \"C:\\\\Users\\\\Wesley Sousa\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\ndk\"\" 2>/dev/null || echo \"NOT FOUND \")",
       "WebFetch(domain:expo.dev)",
       "WebFetch(domain:expo.fyi)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(du -sh c:/Projetos/project-amaracyta/backend-agent/*/)",
+      "Bash(du -sh c:/Projetos/project-amaracyta/mobile/*/)",
+      "Bash(find c:/Projetos/project-amaracyta -not -path */.git/* -not -path */node_modules/* -not -path */.venv/* -size +1M)",
+      "Bash(find c:/Projetos/project-amaracyta/mobile/android -not -path */.gradle/* -not -path */app/build/* -not -path */build/* -name '*[: ]*')",
+      "Bash(find c:/Projetos/project-amaracyta/mobile/src -name *.tsx -o -name *.ts -o -name *.jsx -o -name *.js)",
+      "Bash(xargs grep:*)",
+      "Bash(python -c \":*)",
+      "Bash(pip install:*)",
+      "Bash(python -c \"import sys; data=sys.stdin.buffer.read\\(\\); print\\(data.decode\\(''''utf-8'''',''''replace''''\\)\\)\")",
+      "Bash(python -c \"from models import ModuleFlowStep, ChatSession, Message; print\\(''models OK''\\); from app import _flow_step_dict, _build_flow_prompt; print\\(''helpers OK''\\)\")"
     ]
   }
 }

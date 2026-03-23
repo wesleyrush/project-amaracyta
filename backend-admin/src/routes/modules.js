@@ -89,4 +89,76 @@ router.delete('/:id', requireAuth, requirePermission('agente', 'delete'), async 
   res.json({ ok: true });
 });
 
+// ── Flow Steps ────────────────────────────────────────────────────────────────
+
+// GET /api/modules/:id/flow-steps
+router.get('/:id/flow-steps', requireAuth, async (req, res) => {
+  const [rows] = await db.query(
+    `SELECT * FROM module_flow_steps WHERE module_id = ? ORDER BY step_order`,
+    [req.params.id]
+  );
+  res.json({ items: rows });
+});
+
+// POST /api/modules/:id/flow-steps
+router.post('/:id/flow-steps', requireAuth, requirePermission('agente', 'insert'), async (req, res) => {
+  const { step_order, label, button_label, prompt_template, include_user_profile, is_hidden } = req.body;
+  if (!step_order) return res.status(400).json({ error: 'step_order é obrigatório' });
+
+  const [existing] = await db.query(
+    'SELECT id FROM module_flow_steps WHERE module_id = ? AND step_order = ?',
+    [req.params.id, step_order]
+  );
+  if (existing.length) return res.status(409).json({ error: `Já existe um passo com step_order=${step_order}` });
+
+  const [result] = await db.query(
+    `INSERT INTO module_flow_steps
+       (module_id, step_order, label, button_label, prompt_template, include_user_profile, is_hidden)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [
+      req.params.id, step_order,
+      label || null, button_label || null, prompt_template || null,
+      include_user_profile ? 1 : 0,
+      is_hidden ? 1 : 0,
+    ]
+  );
+  const [rows] = await db.query('SELECT * FROM module_flow_steps WHERE id = ?', [result.insertId]);
+  res.status(201).json(rows[0]);
+});
+
+// PUT /api/modules/:id/flow-steps/:stepId
+router.put('/:id/flow-steps/:stepId', requireAuth, requirePermission('agente', 'update'), async (req, res) => {
+  const { step_order, label, button_label, prompt_template, include_user_profile, is_hidden } = req.body;
+
+  const [existing] = await db.query(
+    'SELECT id FROM module_flow_steps WHERE id = ? AND module_id = ?',
+    [req.params.stepId, req.params.id]
+  );
+  if (!existing.length) return res.status(404).json({ error: 'Passo não encontrado' });
+
+  await db.query(
+    `UPDATE module_flow_steps
+     SET step_order=?, label=?, button_label=?, prompt_template=?, include_user_profile=?, is_hidden=?, updated_at=NOW()
+     WHERE id=?`,
+    [
+      step_order, label || null, button_label || null, prompt_template || null,
+      include_user_profile ? 1 : 0,
+      is_hidden ? 1 : 0,
+      req.params.stepId,
+    ]
+  );
+  const [rows] = await db.query('SELECT * FROM module_flow_steps WHERE id = ?', [req.params.stepId]);
+  res.json(rows[0]);
+});
+
+// DELETE /api/modules/:id/flow-steps/:stepId
+router.delete('/:id/flow-steps/:stepId', requireAuth, requirePermission('agente', 'delete'), async (req, res) => {
+  const [result] = await db.query(
+    'DELETE FROM module_flow_steps WHERE id = ? AND module_id = ?',
+    [req.params.stepId, req.params.id]
+  );
+  if (!result.affectedRows) return res.status(404).json({ error: 'Passo não encontrado' });
+  res.status(204).send();
+});
+
 module.exports = router;

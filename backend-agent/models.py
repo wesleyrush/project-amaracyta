@@ -59,6 +59,37 @@ class Module(Base):
 
     sessions     = relationship("ChatSession", back_populates="module")
     user_modules = relationship("UserModule", back_populates="module")
+    flow_steps   = relationship("ModuleFlowStep", back_populates="module", cascade="all, delete-orphan", order_by="ModuleFlowStep.step_order")
+
+
+# --- Module Flow Steps ---
+class ModuleFlowStep(Base):
+    """Define os passos sequenciais do fluxo de um módulo.
+
+    Cada passo pode exibir um botão ao usuário (button_label) e,
+    quando acionado, envia um prompt_template ao agente (com variáveis
+    do perfil do usuário/filho substituídas automaticamente).
+    """
+    __tablename__ = "module_flow_steps"
+    __table_args__ = (UniqueConstraint("module_id", "step_order", name="uq_module_flow_step"),)
+
+    id           = Column(Integer, primary_key=True, autoincrement=True)
+    module_id    = Column(Integer, ForeignKey("modules.id", ondelete="CASCADE"), nullable=False, index=True)
+    step_order   = Column(Integer, nullable=False)           # 1, 2, 3 ...
+    label        = Column(String(200), nullable=True)        # Descrição interna (admin)
+    # Texto do botão exibido ANTES deste passo ser executado
+    button_label = Column(String(200), nullable=True)
+    # Template do prompt enviado ao agente neste passo
+    # Variáveis: {first} {full_name} {initiatic_name} {birth_date} {birth_time}
+    #            {birth_country} {birth_state} {birth_city} {birth_location}
+    prompt_template     = Column(Text, nullable=True)
+    include_user_profile = Column(Boolean, nullable=False, default=False)
+    is_hidden            = Column(Boolean, nullable=False, default=True)  # Ocultar da UI
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc))
+
+    module = relationship("Module", back_populates="flow_steps")
 
 
 # --- Module Package (bundle de módulos fixos) ---
@@ -117,6 +148,7 @@ class ChatSession(Base):
     child_id  = Column(Integer, ForeignKey("children.id", ondelete="SET NULL"), nullable=True)
     module_id = Column(Integer, ForeignKey("modules.id", ondelete="SET NULL"), nullable=True, index=True)
     title = Column(String(255), nullable=False, default="Nova conversa")
+    flow_step = Column(Integer, nullable=False, default=0)   # passos do fluxo já executados
     created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
@@ -140,6 +172,7 @@ class Message(Base):
     ts = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     coin_value = Column(Numeric(12, 7), nullable=True)
     coin_type  = Column(Enum('gold', 'silver', 'bronze'), nullable=True)
+    hidden     = Column(Boolean, nullable=False, default=False)  # ocultar da UI do chat
 
     session = relationship("ChatSession", back_populates="messages")
     __table_args__ = (Index("idx_messages_session_ts", "session_id", "ts"),)

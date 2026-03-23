@@ -80,6 +80,10 @@ export async function apiGet<T>(path: string): Promise<T> {
     headers: { Accept: 'application/json' },
   });
   if (!r.ok) {
+    if (r.status === 401) {
+      handleUnauthenticated();
+      throw new Error('Sessão expirada. Faça login novamente.');
+    }
     throw new Error(`GET ${path} → ${r.status} ${await readErrorPayload(r)}`);
   }
   return (await r.json()) as T;
@@ -122,10 +126,17 @@ export async function apiWrite<T>(
         headers: mkHeaders(),
         body: body != null ? JSON.stringify(body) : null,
       });
+    } else {
+      handleUnauthenticated();
+      throw new Error('Sessão expirada. Faça login novamente.');
     }
   }
 
   if (!r.ok) {
+    if (r.status === 401) {
+      handleUnauthenticated();
+      throw new Error('Sessão expirada. Faça login novamente.');
+    }
     throw new Error(`${method} ${path} → ${r.status} ${await readErrorPayload(r)}`);
   }
   // alguns endpoints podem responder 204
@@ -133,6 +144,19 @@ export async function apiWrite<T>(
 
   const ct = r.headers.get('content-type') || '';
   return (ct.includes('application/json') ? r.json() : r.text()) as Promise<T>;
+}
+
+/** Callback chamado quando a sessão expira e não é possível renovar */
+let _onUnauthenticated: (() => void) | null = null;
+let _unauthHandled = false;
+
+export function setUnauthenticatedHandler(fn: () => void) {
+  _onUnauthenticated = fn;
+}
+function handleUnauthenticated() {
+  if (_unauthHandled) return;
+  _unauthHandled = true;
+  _onUnauthenticated?.();
 }
 
 /** Tenta /auth/refresh uma única vez; retorna true se sucesso */

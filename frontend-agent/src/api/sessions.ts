@@ -10,3 +10,13 @@ export const patchTitle    = (cid:string, title:string) =>
   apiWrite<{status:'ok'; id:string; title:string}>(`/sessions/${encodeURIComponent(cid)}`,'PATCH',{ title });
 export const deleteSession = (cid:string) =>
   apiWrite<{status:'ok'}>(`/sessions/${encodeURIComponent(cid)}`,'DELETE');
+
+export const advanceFlow = (cid: string) =>
+  apiWrite<{ status: 'ok'; flow_step: number; flow_next_button: string | null }>(
+    `/sessions/${encodeURIComponent(cid)}/flow-advance`, 'POST'
+  );
+
+export const sendOpening = (cid: string) =>
+  apiWrite<{ status: 'ok' | 'already_sent' }>(
+    `/sessions/${encodeURIComponent(cid)}/send-opening`, 'POST'
+  );

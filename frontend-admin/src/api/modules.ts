@@ -1,5 +1,5 @@
 import api from './client';
-import type { Module } from '../types';
+import type { Module, ModuleFlowStep } from '../types';
 
 export const listModules = () =>
   api.get<{ items: Module[] }>('/modules').then(r => r.data.items);
@@ -19,3 +19,16 @@ export const toggleModule = (id: number) =>
 
 export const deleteModule = (id: number) =>
   api.delete(`/modules/${id}`).then(r => r.data);
+
+// Flow Steps
+export const listFlowSteps = (moduleId: number) =>
+  api.get<{ items: ModuleFlowStep[] }>(`/modules/${moduleId}/flow-steps`).then(r => r.data.items);
+
+export const createFlowStep = (moduleId: number, data: Omit<ModuleFlowStep, 'id' | 'module_id' | 'created_at' | 'updated_at'>) =>
+  api.post<ModuleFlowStep>(`/modules/${moduleId}/flow-steps`, data).then(r => r.data);
+
+export const updateFlowStep = (moduleId: number, stepId: number, data: Partial<Omit<ModuleFlowStep, 'id' | 'module_id' | 'created_at' | 'updated_at'>>) =>
+  api.put<ModuleFlowStep>(`/modules/${moduleId}/flow-steps/${stepId}`, data).then(r => r.data);
+
+export const deleteFlowStep = (moduleId: number, stepId: number) =>
+  api.delete(`/modules/${moduleId}/flow-steps/${stepId}`).then(r => r.data);

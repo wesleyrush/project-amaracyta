@@ -5,10 +5,10 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { purchaseChest } from '../api/chests';
+import { purchaseModules } from '../api/modules';
 import { useApp } from '../context/AppContext';
 import { colors, font, spacing, radius } from '../theme';
-import type { CoinChest } from '../types';
+import type { Module } from '../types';
 
 type PayMethod = 'credit_card' | 'pix' | 'boleto';
 
@@ -22,11 +22,13 @@ function formatCardNumber(v: string) {
   return v.replace(/\D/g, '').slice(0, 16).replace(/(.{4})/g, '$1 ').trim();
 }
 
-export default function CheckoutScreen() {
+export default function ModuleCheckoutScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const chest: CoinChest = route.params?.chest;
-  const { refreshBalance, setBalances } = useApp();
+  const moduleQuantities: Record<number, number> = route.params?.moduleQuantities ?? {};
+  const modules: Module[] = route.params?.modules ?? [];
+  const price: number = route.params?.price ?? 0;
+  const { refreshUserModules } = useApp();
 
   const [method, setMethod] = useState<PayMethod>('pix');
   const [cardNumber, setCardNumber] = useState('');
@@ -35,39 +37,32 @@ export default function CheckoutScreen() {
   const [cardCvv, setCardCvv] = useState('');
   const [loading, setLoading] = useState(false);
 
-  if (!chest) {
-    navigation.goBack();
-    return null;
-  }
-
   const handlePurchase = async () => {
     if (method === 'credit_card') {
       if (cardNumber.replace(/\s/g, '').length < 16) {
-        Alert.alert('Atenção', 'Número de cartão inválido.');
-        return;
+        Alert.alert('Atenção', 'Número de cartão inválido.'); return;
       }
       if (!cardName.trim()) {
-        Alert.alert('Atenção', 'Informe o nome no cartão.');
-        return;
+        Alert.alert('Atenção', 'Informe o nome no cartão.'); return;
       }
       if (cardExpiry.length < 5) {
-        Alert.alert('Atenção', 'Informe a validade do cartão (MM/AA).');
-        return;
+        Alert.alert('Atenção', 'Informe a validade do cartão (MM/AA).'); return;
       }
       if (cardCvv.length < 3) {
-        Alert.alert('Atenção', 'Informe o CVV.');
-        return;
+        Alert.alert('Atenção', 'Informe o CVV.'); return;
       }
     }
     setLoading(true);
     try {
       await new Promise(r => setTimeout(r, 1800));
-      const result = await purchaseChest(chest.id, method);
-      await refreshBalance();
+      const result = await purchaseModules(moduleQuantities, method);
+      await refreshUserModules();
       navigation.navigate('PurchaseSuccess', {
-        chest,
+        isModulePurchase: true,
+        modules,
+        moduleQuantities,
+        price,
         result,
-        isModulePurchase: false,
       });
     } catch (e: any) {
       Alert.alert('Erro', e?.response?.data?.error || 'Erro ao processar pagamento.');
@@ -88,27 +83,19 @@ export default function CheckoutScreen() {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Resumo do pedido</Text>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>{chest.name}</Text>
-            <Text style={styles.summaryVal}>R$ {chest.price_brl.toFixed(2).replace('.', ',')}</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>
-              Tipo de moeda
-            </Text>
-            <Text style={[styles.summaryVal, { color: colors[chest.coin_type] ?? colors.accent }]}>
-              {chest.coin_type === 'gold' ? 'Ouro' : chest.coin_type === 'silver' ? 'Prata' : 'Bronze'}
-            </Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Quantidade</Text>
-            <Text style={[styles.summaryVal, { color: colors.accent }]}>
-              {chest.coin_amount.toLocaleString('pt-BR')} moedas
-            </Text>
-          </View>
+          {modules.map(m => {
+            const qty = moduleQuantities[m.id] ?? 0;
+            const linePrice = qty * (m.price_brl ?? 0);
+            return (
+              <View key={m.id} style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>{m.name} × {qty}</Text>
+                <Text style={styles.summaryVal}>R$ {linePrice.toFixed(2).replace('.', ',')}</Text>
+              </View>
+            );
+          })}
           <View style={[styles.summaryRow, styles.totalRow]}>
             <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalVal}>R$ {chest.price_brl.toFixed(2).replace('.', ',')}</Text>
+            <Text style={styles.totalVal}>R$ {price.toFixed(2).replace('.', ',')}</Text>
           </View>
         </View>
 
@@ -246,7 +233,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: { color: colors.text, fontSize: font.md, fontWeight: '700', marginBottom: spacing.md },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm },
-  summaryLabel: { color: colors.muted, fontSize: font.base },
+  summaryLabel: { color: colors.muted, fontSize: font.base, flex: 1 },
   summaryVal: { color: colors.text, fontSize: font.base, fontWeight: '600' },
   totalRow: {
     borderTopWidth: 1, borderTopColor: colors.border,

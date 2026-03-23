@@ -79,6 +79,19 @@ export interface Module {
   created_at: string;
 }
 
+export interface ModuleFlowStep {
+  id: number;
+  module_id: number;
+  step_order: number;
+  label: string | null;
+  button_label: string | null;
+  prompt_template: string | null;
+  include_user_profile: boolean;
+  is_hidden: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
 export interface ModulePackage {
   id: number;
   quantity: number;

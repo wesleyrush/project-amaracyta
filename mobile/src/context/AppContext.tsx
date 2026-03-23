@@ -1,134 +1,154 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import type { ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { User, SessionListItem, UserModule, CoinBalances, CoinCosts, SiteSettings } from '../types';
 import { me, refresh } from '../api/auth';
-import { listSessions } from '../api/sessions';
+import { listSessions, getSession } from '../api/sessions';
 import { getBalance } from '../api/balance';
 import { listUserModules } from '../api/modules';
 import { getSettings } from '../api/settings';
-import { ensureCsrf } from '../api/client';
-import type { User, SessionListItem, CoinBalances, CoinCosts, UserModule, SiteSettings } from '../types';
 
-interface AppCtx {
+export type { CoinBalances, CoinCosts };
+
+const DEFAULT_COSTS: CoinCosts = { gold: 0.3333333, silver: 0.6666666, bronze: 0.9999999 };
+const ZERO_BALANCES: CoinBalances = { gold: 0, silver: 0, bronze: 0 };
+
+type Ctx = {
   user: User | null;
-  authed: boolean;
-  authReady: boolean;
-  cid: string;
+  cid: string | null;
+  setCid: (v: string) => void;
   sessions: SessionListItem[];
+  setSessions: (s: SessionListItem[]) => void;
+  authReady: boolean;
+  authed: boolean;
+  setAuthed: (v: boolean) => void;
+  setUser: (v: User | null) => void;
+  showModulePicker: boolean;
+  setShowModulePicker: (v: boolean) => void;
   balances: CoinBalances;
   costs: CoinCosts;
-  userModules: UserModule[];
-  siteSettings: SiteSettings;
-  setUser: (u: User | null) => void;
-  setCid: (id: string) => void;
-  setSessions: (s: SessionListItem[]) => void;
-  setBalances: (b: CoinBalances) => void;
+  setBalances: (v: CoinBalances) => void;
   refreshBalance: () => Promise<void>;
-  refreshSessions: () => Promise<void>;
+  userModules: UserModule[];
   refreshUserModules: () => Promise<void>;
-  refreshSettings: () => Promise<void>;
+  refreshSessions: () => Promise<void>;
+  siteSettings: SiteSettings;
+};
+
+const AppContext = createContext<Ctx | null>(null);
+
+export function useApp() {
+  const ctx = useContext(AppContext);
+  if (!ctx) throw new Error('useApp must be used within AppProvider');
+  return ctx;
 }
 
-const defaultBalances: CoinBalances = { gold: 0, silver: 0, bronze: 0 };
-const defaultCosts: CoinCosts = { gold: 0.333, silver: 0.667, bronze: 1.0 };
-
-const Ctx = createContext<AppCtx>(null!);
+const LAST_CID_KEY = (uid: string) => `CHAT_LAST_CID_${uid}`;
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [user, setUserState] = useState<User | null>(null);
-  const [authReady, setAuthReady] = useState(false);
-  const [cid, setCidState] = useState('');
+  const [user, setUser] = useState<User | null>(null);
+  const [cid, setCidState] = useState<string | null>(null);
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
-  const [balances, setBalances] = useState<CoinBalances>(defaultBalances);
-  const [costs, setCosts] = useState<CoinCosts>(defaultCosts);
+  const [authReady, setAuthReady] = useState(false);
+  const [authed, setAuthed] = useState(false);
+  const [showModulePicker, setShowModulePicker] = useState(false);
+  const [balances, setBalances] = useState<CoinBalances>(ZERO_BALANCES);
+  const [costs, setCosts] = useState<CoinCosts>(DEFAULT_COSTS);
   const [userModules, setUserModules] = useState<UserModule[]>([]);
   const [siteSettings, setSiteSettings] = useState<SiteSettings>({});
+  const userRef = useRef<User | null>(null);
 
-  const setUser = (u: User | null) => setUserState(u);
-
-  const setCid = useCallback(async (id: string) => {
-    setCidState(id);
-    if (user) {
-      await AsyncStorage.setItem(`LAST_CID__${user.id}`, id);
-    }
-  }, [user]);
+  const setCid = useCallback((v: string) => {
+    setCidState(v);
+    const uid = userRef.current?.id;
+    if (uid) AsyncStorage.setItem(LAST_CID_KEY(String(uid)), v).catch(() => {});
+  }, []);
 
   const refreshBalance = useCallback(async () => {
     try {
-      const data = await getBalance();
-      setBalances(data.balances);
-      if (data.costs) setCosts(data.costs);
-    } catch {}
-  }, []);
-
-  const refreshSessions = useCallback(async () => {
-    try {
-      const list = await listSessions();
-      setSessions(list);
+      const b = await getBalance();
+      if ((b as any).balances) {
+        const bal = (b as any).balances as CoinBalances;
+        setBalances(bal);
+        if ((b as any).costs) setCosts((b as any).costs);
+      } else {
+        const raw = b as any;
+        setBalances({
+          gold: raw.coins_gold ?? raw.gold ?? 0,
+          silver: raw.coins_silver ?? raw.silver ?? 0,
+          bronze: raw.coins_bronze ?? raw.bronze ?? 0,
+        });
+        if (raw.costs) setCosts(raw.costs);
+      }
     } catch {}
   }, []);
 
   const refreshUserModules = useCallback(async () => {
     try {
       const r = await listUserModules();
-      setUserModules(r.items);
+      setUserModules(r.items ?? []);
     } catch {}
   }, []);
 
-  const refreshSettings = useCallback(async () => {
+  const refreshSessions = useCallback(async () => {
     try {
-      const s = await getSettings();
-      setSiteSettings(s);
+      const list = await listSessions();
+      setSessions(list ?? []);
     } catch {}
+  }, []);
+
+  const handleSetUser = useCallback((u: User | null) => {
+    userRef.current = u;
+    setUser(u);
   }, []);
 
   useEffect(() => {
     (async () => {
       try {
-        await ensureCsrf();
         let u: User;
-        try {
+        try { u = await me(); }
+        catch {
+          await refresh();
           u = await me();
-        } catch (e: any) {
-          if (e?.response?.status === 401) {
-            await refresh();
-            u = await me();
-          } else throw e;
         }
-        setUserState(u);
-        const [sessionList] = await Promise.all([
-          listSessions().catch(() => [] as SessionListItem[]),
-          getBalance().then(d => { setBalances(d.balances); if (d.costs) setCosts(d.costs); }).catch(() => {}),
-          listUserModules().then(r => setUserModules(r.items)).catch(() => {}),
-          getSettings().then(s => setSiteSettings(s)).catch(() => {}),
-        ]);
-        setSessions(sessionList);
-        const lastCid = await AsyncStorage.getItem(`LAST_CID__${u.id}`);
-        if (lastCid && sessionList.find(s => s.id === lastCid)) {
-          setCidState(lastCid);
-        } else if (sessionList.length > 0) {
-          setCidState(sessionList[0].id);
+        handleSetUser(u);
+        setAuthed(true);
+
+        const list = await listSessions().catch(() => [] as SessionListItem[]);
+        setSessions(list);
+
+        const lastCid = await AsyncStorage.getItem(LAST_CID_KEY(String(u.id)));
+        if (lastCid) {
+          try { await getSession(lastCid); setCidState(lastCid); }
+          catch { if (list.length) setCidState(list[0].id); else setShowModulePicker(true); }
+        } else if (list.length) {
+          setCidState(list[0].id);
+        } else {
+          setShowModulePicker(true);
         }
+
+        await Promise.all([refreshBalance(), refreshUserModules()]);
+        try { const s = await getSettings(); setSiteSettings(s); } catch {}
       } catch {
-        setUserState(null);
+        setAuthed(false);
+        handleSetUser(null);
       } finally {
         setAuthReady(true);
       }
     })();
   }, []);
 
-  return (
-    <Ctx.Provider value={{
-      user, authed: !!user, authReady,
-      cid, setCid,
-      sessions, setSessions,
-      balances, costs, setBalances,
-      userModules, siteSettings,
-      refreshBalance, refreshSessions, refreshUserModules, refreshSettings,
-      setUser,
-    }}>
-      {children}
-    </Ctx.Provider>
-  );
-}
+  const value: Ctx = {
+    user, cid, setCid,
+    sessions, setSessions,
+    authReady, authed, setAuthed,
+    setUser: handleSetUser,
+    showModulePicker, setShowModulePicker,
+    balances, costs, setBalances, refreshBalance,
+    userModules, refreshUserModules,
+    refreshSessions,
+    siteSettings,
+  };
 
-export const useApp = () => useContext(Ctx);
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+}

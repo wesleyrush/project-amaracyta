@@ -5,6 +5,7 @@ export interface Message {
   role: Role;
   content: string;
   ts?: string;
+  hidden?: boolean;
 }
 
 export interface SessionListItem {
@@ -29,9 +30,12 @@ export interface Session {
   module_id?: number | null;
   module_name?: string | null;
   module_slug?: string | null;
+  module_type?: 'free' | 'fixed';
   module_use_opening_prompt?: boolean;
   module_opening_prompt?: string | null;
   module_welcome_message?: string | null;
+  flow_step?: number;
+  flow_next_button?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
   messages: Message[];

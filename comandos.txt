@@ -1,14 +1,14 @@
- Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
- .\.venv\Scripts\Activate.ps1
+Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
+.\.venv\Scripts\Activate.ps1
 
 .\.venv\Scripts\activate.bat
- uvicorn app:app --reload --host 0.0.0.0 --port 8000
-
+uvicorn app:app --reload --host 0.0.0.0 --port 8000
 
 Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
 npm run dev
 
 node src/server.js    
-
- Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
+Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
 npm run dev
+
+senha FTP: Am@r4cyTa777

@@ -6,12 +6,12 @@ export async function listChildren(): Promise<{ items: Child[] }> {
   return { items: res.data.items ?? [] };
 }
 
-export async function createChild(data: Omit<Child, 'id' | 'user_id' | 'created_at'>): Promise<Child> {
+export async function createChild(data: Partial<Child>): Promise<Child> {
   const res = await apiClient.post<Child>('/children', data);
   return res.data;
 }
 
-export async function updateChild(id: number, data: Partial<Omit<Child, 'id' | 'user_id' | 'created_at'>>): Promise<Child> {
+export async function updateChild(id: number, data: Partial<Child>): Promise<Child> {
   const res = await apiClient.put<Child>(`/children/${id}`, data);
   return res.data;
 }

@@ -34,6 +34,7 @@ from db import Base, engine, get_db
 from models import (
     User, ChatSession, Message, Module, CoinProportion, CoinTransaction,
     CoinChest, CoinOrder, ModulePackage, UserModule, ModuleOrder, Child, SiteSettings,
+    ModuleFlowStep,
 )
 from auth import router as auth_router
 from security import decode_token
@@ -418,6 +419,75 @@ class ModuleUpdate(BaseModel):
     price_brl: Optional[float] = None
 
 
+# ---------------------------------------------------------------------------
+# Flow Steps – Pydantic models + helpers
+# ---------------------------------------------------------------------------
+
+class FlowStepCreate(BaseModel):
+    step_order: int
+    label: Optional[str] = None
+    button_label: Optional[str] = None
+    prompt_template: Optional[str] = None
+    include_user_profile: bool = False
+    is_hidden: bool = True
+
+
+class FlowStepUpdate(BaseModel):
+    step_order: Optional[int] = None
+    label: Optional[str] = None
+    button_label: Optional[str] = None
+    prompt_template: Optional[str] = None
+    include_user_profile: Optional[bool] = None
+    is_hidden: Optional[bool] = None
+
+
+def _flow_step_dict(fs: ModuleFlowStep) -> Dict[str, Any]:
+    return {
+        "id": fs.id,
+        "module_id": fs.module_id,
+        "step_order": fs.step_order,
+        "label": fs.label,
+        "button_label": fs.button_label,
+        "prompt_template": fs.prompt_template,
+        "include_user_profile": bool(fs.include_user_profile),
+        "is_hidden": bool(fs.is_hidden),
+        "created_at": fs.created_at.isoformat() if fs.created_at else None,
+        "updated_at": fs.updated_at.isoformat() if fs.updated_at else None,
+    }
+
+
+def _build_flow_prompt(step: ModuleFlowStep, subject: Any, user: User) -> str:
+    """Substitui variáveis no prompt_template com dados do usuário/filho."""
+    template = step.prompt_template or ""
+
+    full_name      = getattr(subject, "full_name", "") or ""
+    initiatic_name = getattr(subject, "initiatic_name", "") or ""
+    birth_date_raw = getattr(subject, "birth_date", None)
+    birth_time     = getattr(subject, "birth_time", "") or ""
+    birth_country  = getattr(subject, "birth_country", "") or ""
+    birth_state    = getattr(subject, "birth_state", "") or ""
+    birth_city     = getattr(subject, "birth_city", "") or ""
+
+    first = full_name.strip().split()[0] if full_name.strip() else "Amigo"
+    birth_date_str = birth_date_raw.strftime("%d/%m/%Y") if birth_date_raw else ""
+    birth_location = ", ".join(filter(None, [birth_city, birth_state, birth_country]))
+
+    try:
+        return template.format(
+            first=first,
+            full_name=full_name,
+            initiatic_name=initiatic_name,
+            birth_date=birth_date_str,
+            birth_time=birth_time,
+            birth_country=birth_country,
+            birth_state=birth_state,
+            birth_city=birth_city,
+            birth_location=birth_location,
+        )
+    except KeyError:
+        return template  # devolve sem substituição se houver variável inválida
+
+
 @app.get("/admin/modules")
 def admin_list_modules(
     admin: User = Depends(require_admin),
@@ -523,6 +593,98 @@ def admin_delete_module(
     if not m:
         raise HTTPException(status_code=404, detail="Módulo não encontrado")
     db.delete(m)
+    db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Admin – Module Flow Steps CRUD
+# ---------------------------------------------------------------------------
+
+@app.get("/admin/modules/{mid}/flow-steps")
+def admin_list_flow_steps(
+    mid: int,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    if not db.get(Module, mid):
+        raise HTTPException(status_code=404, detail="Módulo não encontrado")
+    steps = (
+        db.query(ModuleFlowStep)
+        .filter(ModuleFlowStep.module_id == mid)
+        .order_by(ModuleFlowStep.step_order)
+        .all()
+    )
+    return {"items": [_flow_step_dict(fs) for fs in steps]}
+
+
+@app.post("/admin/modules/{mid}/flow-steps", status_code=201)
+def admin_create_flow_step(
+    mid: int,
+    payload: FlowStepCreate,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+    _csrf: None = Depends(require_csrf_header),
+):
+    if not db.get(Module, mid):
+        raise HTTPException(status_code=404, detail="Módulo não encontrado")
+    existing = db.query(ModuleFlowStep).filter(
+        ModuleFlowStep.module_id == mid,
+        ModuleFlowStep.step_order == payload.step_order,
+    ).first()
+    if existing:
+        raise HTTPException(status_code=409, detail=f"Já existe um passo com step_order={payload.step_order}")
+    fs = ModuleFlowStep(
+        module_id=mid,
+        step_order=payload.step_order,
+        label=payload.label,
+        button_label=payload.button_label,
+        prompt_template=payload.prompt_template,
+        include_user_profile=payload.include_user_profile,
+        is_hidden=payload.is_hidden,
+    )
+    db.add(fs)
+    db.commit()
+    db.refresh(fs)
+    return _flow_step_dict(fs)
+
+
+@app.put("/admin/modules/{mid}/flow-steps/{step_id}")
+def admin_update_flow_step(
+    mid: int,
+    step_id: int,
+    payload: FlowStepUpdate,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+    _csrf: None = Depends(require_csrf_header),
+):
+    fs = db.query(ModuleFlowStep).filter(
+        ModuleFlowStep.id == step_id,
+        ModuleFlowStep.module_id == mid,
+    ).first()
+    if not fs:
+        raise HTTPException(status_code=404, detail="Passo não encontrado")
+    for field, val in payload.dict(exclude_none=True).items():
+        setattr(fs, field, val)
+    db.commit()
+    db.refresh(fs)
+    return _flow_step_dict(fs)
+
+
+@app.delete("/admin/modules/{mid}/flow-steps/{step_id}", status_code=204)
+def admin_delete_flow_step(
+    mid: int,
+    step_id: int,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+    _csrf: None = Depends(require_csrf_header),
+):
+    fs = db.query(ModuleFlowStep).filter(
+        ModuleFlowStep.id == step_id,
+        ModuleFlowStep.module_id == mid,
+    ).first()
+    if not fs:
+        raise HTTPException(status_code=404, detail="Passo não encontrado")
+    db.delete(fs)
     db.commit()
 
 
@@ -645,22 +807,31 @@ class ModulePurchaseIn(BaseModel):
 def list_user_modules(user: User = Depends(require_user), db: Session = Depends(get_db)):
     from sqlalchemy import func as sa_func
     rows = db.query(UserModule).filter(UserModule.user_id == user.id).all()
+    total_quantity = sum(r.quantity for r in rows)
+    # Count ALL active sessions for this user (pool-based)
+    total_active = db.query(ChatSession).filter(ChatSession.user_id == user.id).count()
+    total_available = max(0, total_quantity - total_active)
     if not rows:
-        return {"items": []}
+        return {"items": [], "total_quantity": 0, "total_active": total_active, "total_available": 0}
     module_ids = [r.module_id for r in rows]
-    # Count active sessions per module for this user
+    # Count active sessions per module for this user (kept for reference)
     counts = dict(
         db.query(ChatSession.module_id, sa_func.count(ChatSession.id))
         .filter(ChatSession.user_id == user.id, ChatSession.module_id.in_(module_ids))
         .group_by(ChatSession.module_id)
         .all()
     )
-    return {"items": [{
-        "module_id": r.module_id,
-        "quantity": r.quantity,
-        "available_qty": max(0, r.quantity - counts.get(r.module_id, 0)),
-        "purchased_at": r.purchased_at.isoformat(),
-    } for r in rows]}
+    return {
+        "items": [{
+            "module_id": r.module_id,
+            "quantity": r.quantity,
+            "available_qty": max(0, r.quantity - counts.get(r.module_id, 0)),
+            "purchased_at": r.purchased_at.isoformat(),
+        } for r in rows],
+        "total_quantity": total_quantity,
+        "total_active": total_active,
+        "total_available": total_available,
+    }
 
 
 @app.post("/modules/purchase")
@@ -745,6 +916,16 @@ def purchase_modules(
 # ---------------------------------------------------------------------------
 
 def session_to_dict(s: ChatSession) -> Dict[str, Any]:
+    # Determine the next flow button label (if any)
+    flow_step = s.flow_step or 0
+    flow_next_button: Optional[str] = None
+    if s.module:
+        next_order = flow_step + 1
+        for fs in (s.module.flow_steps or []):
+            if fs.step_order == next_order:
+                flow_next_button = fs.button_label
+                break
+
     return {
         "id": s.id,
         "title": s.title or "Conversa",
@@ -757,13 +938,16 @@ def session_to_dict(s: ChatSession) -> Dict[str, Any]:
         "module_opening_prompt": s.module.opening_prompt if s.module else None,
         "module_welcome_message": s.module.welcome_message if s.module else None,
         "module_type": s.module.module_type if s.module else "free",
+        "flow_step": flow_step,
+        "flow_next_button": flow_next_button,
         "created_at": s.created_at.isoformat() if s.created_at else None,
         "updated_at": s.updated_at.isoformat() if s.updated_at else None,
         "messages": [
             {
                 "role": m.role,
                 "content": m.content,
-                "ts": m.ts.isoformat() if m.ts else None
+                "ts": m.ts.isoformat() if m.ts else None,
+                "hidden": bool(m.hidden),
             }
             for m in s.messages
         ],
@@ -813,23 +997,24 @@ def create_session(
     if not module or not module.is_active:
         raise HTTPException(status_code=404, detail="Módulo não encontrado.")
 
-    # Módulo fixo: verificar se o usuário adquiriu e tem unidades disponíveis
+    # Módulo fixo: verificar pool total de unidades disponíveis (independente do módulo específico)
     if module.module_type == "fixed":
-        owned = db.query(UserModule).filter(
-            UserModule.user_id == user.id, UserModule.module_id == module.id
-        ).first()
-        if not owned:
+        from sqlalchemy import func as sa_func
+        total_qty = db.query(sa_func.sum(UserModule.quantity)).filter(
+            UserModule.user_id == user.id
+        ).scalar() or 0
+        if total_qty == 0:
             raise HTTPException(
                 status_code=402,
-                detail="Você não adquiriu este módulo. Compre-o na loja para ter acesso.",
+                detail="Você não possui módulos adquiridos. Compre na loja para ter acesso.",
             )
-        used_count = db.query(ChatSession).filter(
-            ChatSession.user_id == user.id, ChatSession.module_id == module.id
+        total_active = db.query(ChatSession).filter(
+            ChatSession.user_id == user.id
         ).count()
-        if used_count >= owned.quantity:
+        if total_active >= total_qty:
             raise HTTPException(
                 status_code=402,
-                detail="Você atingiu o limite de conexões para este módulo. Adquira mais unidades na loja.",
+                detail="Você atingiu o limite de conexões disponíveis. Adquira mais unidades na loja.",
             )
 
     # Validate child belongs to this user (if provided)
@@ -885,6 +1070,9 @@ def get_session(
         raise HTTPException(status_code=404, detail="Sessão não encontrada.")
     _ = s.messages
     _ = s.module
+    if s.module:
+        _ = s.module.flow_steps  # eager-load para session_to_dict
+    _ = s.child
     return session_to_dict(s)
 
 
@@ -927,6 +1115,133 @@ def delete_session(
     db.delete(s)
     db.commit()
     return {"status": "ok"}
+
+
+@app.post("/sessions/{cid}/send-opening")
+def send_opening(
+    cid: str,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+    _csrf: None = Depends(require_csrf_header),
+):
+    """Dispara o opening prompt do módulo na sessão.
+
+    Resolve as variáveis do template com dados do usuário/filho,
+    persiste como mensagem de usuário e retorna ok.
+    O cliente deve então abrir o SSE para receber a resposta do agente.
+    Funciona para módulos fixed (diferente do /messages comum).
+    """
+    s = (
+        db.query(ChatSession)
+        .filter(ChatSession.id == cid, ChatSession.user_id == user.id)
+        .first()
+    )
+    if not s:
+        raise HTTPException(status_code=404, detail="Sessão não encontrada.")
+
+    if not s.module or not s.module.use_opening_prompt or not s.module.opening_prompt:
+        raise HTTPException(status_code=400, detail="Módulo não possui opening prompt configurado.")
+
+    # Não reenvia se já existe mensagem de usuário na sessão
+    existing = db.query(Message).filter(
+        Message.session_id == s.id, Message.role == "user"
+    ).first()
+    if existing:
+        return {"status": "already_sent"}
+
+    subject = s.child if s.child_id and s.child else user
+
+    # Reutiliza a mesma lógica de substituição do flow-advance
+    template = s.module.opening_prompt
+    full_name      = getattr(subject, "full_name", "") or ""
+    initiatic_name = getattr(subject, "initiatic_name", "") or ""
+    birth_date_raw = getattr(subject, "birth_date", None)
+    birth_time     = getattr(subject, "birth_time", "") or ""
+    birth_country  = getattr(subject, "birth_country", "") or ""
+    birth_state    = getattr(subject, "birth_state", "") or ""
+    birth_city     = getattr(subject, "birth_city", "") or ""
+    first = full_name.strip().split()[0] if full_name.strip() else "Amigo"
+    birth_date_str = birth_date_raw.strftime("%d/%m/%Y") if birth_date_raw else ""
+    birth_location = ", ".join(filter(None, [birth_city, birth_state, birth_country]))
+    try:
+        prompt = template.format(
+            first=first, full_name=full_name, initiatic_name=initiatic_name,
+            birth_date=birth_date_str, birth_time=birth_time,
+            birth_country=birth_country, birth_state=birth_state,
+            birth_city=birth_city, birth_location=birth_location,
+        )
+    except KeyError:
+        prompt = template
+
+    db.add(Message(session_id=s.id, role="user", content=prompt, hidden=True))
+    s.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    return {"status": "ok"}
+
+
+@app.post("/sessions/{cid}/flow-advance")
+def flow_advance(
+    cid: str,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+    _csrf: None = Depends(require_csrf_header),
+):
+    """Executa o próximo passo do fluxo do módulo na sessão.
+
+    Salva o prompt (com variáveis resolvidas) como mensagem de usuário,
+    incrementa flow_step e retorna o botão do passo seguinte (se houver).
+    O cliente deve então abrir o SSE para receber a resposta do agente.
+    """
+    s = (
+        db.query(ChatSession)
+        .filter(ChatSession.id == cid, ChatSession.user_id == user.id)
+        .first()
+    )
+    if not s:
+        raise HTTPException(status_code=404, detail="Sessão não encontrada.")
+
+    next_order = (s.flow_step or 0) + 1
+    step = (
+        db.query(ModuleFlowStep)
+        .filter(
+            ModuleFlowStep.module_id == s.module_id,
+            ModuleFlowStep.step_order == next_order,
+        )
+        .first()
+    )
+    if not step:
+        raise HTTPException(status_code=404, detail="Nenhum próximo passo de fluxo definido.")
+
+    # Resolve o sujeito (filho ou usuário logado)
+    subject = s.child if s.child_id and s.child else user
+    prompt = _build_flow_prompt(step, subject, user)
+
+    # Persiste a mensagem (oculta ou não conforme configurado)
+    db.add(Message(
+        session_id=s.id,
+        role="user",
+        content=prompt,
+        hidden=bool(step.is_hidden),
+    ))
+    s.flow_step = next_order
+    s.updated_at = datetime.now(timezone.utc)
+    db.commit()
+
+    # Busca botão do próximo-próximo passo
+    next_next = (
+        db.query(ModuleFlowStep)
+        .filter(
+            ModuleFlowStep.module_id == s.module_id,
+            ModuleFlowStep.step_order == next_order + 1,
+        )
+        .first()
+    )
+
+    return {
+        "status": "ok",
+        "flow_step": s.flow_step,
+        "flow_next_button": next_next.button_label if next_next else None,
+    }
 
 
 # ---------------------------------------------------------------------------

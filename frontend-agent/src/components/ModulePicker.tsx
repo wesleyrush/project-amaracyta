@@ -57,25 +57,22 @@ export default function ModulePicker({ onSelect, onCancel, showCancel = false }:
 
     Promise.all([listModules(), listUserModules()])
       .then(([modsRes, userModsRes]) => {
-        const allModules = modsRes.items.filter(m => m.is_active !== false);
-        const ownedMap   = new Map(userModsRes.items.map(um => [um.module_id, um]));
+        const allModules     = modsRes.items.filter(m => m.is_active !== false);
+        const totalAvailable = userModsRes.total_available ?? 0;
+        const totalQuantity  = userModsRes.total_quantity ?? 0;
 
         // Free modules: always available
         const freeModules = allModules.filter(
           m => m.module_type === 'free' || !m.module_type
         );
-        // Fixed modules: available if remaining units > 0
-        const fixedOwned = allModules.filter(
-          m => m.module_type === 'fixed' && (ownedMap.get(m.id)?.available_qty ?? 0) > 0
-        );
+        // Fixed modules: show ALL if user has slots in the pool (ignores which module was purchased)
+        const fixedModules = totalAvailable > 0
+          ? allModules.filter(m => m.module_type === 'fixed')
+          : [];
 
-        const totalAccessible =
-          freeModules.length +
-          allModules.filter(m => m.module_type === 'fixed' && ownedMap.has(m.id)).length;
-
-        setAllUsed(totalAccessible > 0 && freeModules.length === 0 && fixedOwned.length === 0);
+        setAllUsed(totalQuantity > 0 && fixedModules.length === 0 && freeModules.length === 0);
         setHasFree(freeModules.length > 0);
-        setModules([...freeModules, ...fixedOwned]);
+        setModules([...freeModules, ...fixedModules]);
         // Also refresh context so topbar stays in sync
         refreshUserModules().catch(() => {});
       })

@@ -2,8 +2,8 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import type { User, SessionListItem, UserModule } from '../types';
-import { ensureCsrf } from '../api/client';
-import { me, refresh } from '../api/auth';
+import { ensureCsrf, setUnauthenticatedHandler } from '../api/client';
+import { me, refresh, doLogout } from '../api/auth';
 import { listSessions, getSession } from '../api/sessions';
 import { getBalance } from '../api/balance';
 import { listUserModules } from '../api/modules';
@@ -120,6 +120,12 @@ export function AppProvider({ children }: {children: ReactNode}) {
     setShowModulePicker(true);
     return null;
   }, []);
+
+  useEffect(() => {
+    // Só ativa o handler de sessão expirada quando o usuário está autenticado.
+    // Durante o bootstrap (authed=false), um 401 em me() não deve disparar doLogout().
+    setUnauthenticatedHandler(authed ? () => doLogout() : null);
+  }, [authed]);
 
   useEffect(() => {
     (async () => {

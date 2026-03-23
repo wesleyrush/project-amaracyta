@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity,
-  StyleSheet, Alert, TextInput,
+  StyleSheet, Alert, TextInput, SafeAreaView,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
 import { useApp } from '../context/AppContext';
 import { deleteSession, patchTitle } from '../api/sessions';
+import { logout } from '../api/auth';
 import { colors, font, spacing, radius } from '../theme';
 
 interface Props {
   onNewChat: () => void;
   onClose: () => void;
+  navigation: any;
 }
 
 function fmtDate(iso?: string | null): string {
@@ -18,14 +19,15 @@ function fmtDate(iso?: string | null): string {
   const d = new Date(iso);
   const now = new Date();
   const sameDay = d.toDateString() === now.toDateString();
-  if (sameDay) return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' +
-    d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  if (sameDay) {
+    return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  }
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) +
+    ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
-export default function SessionDrawer({ onNewChat, onClose }: Props) {
-  const navigation = useNavigation<any>();
-  const { cid, setCid, sessions, setSessions, refreshSessions } = useApp();
+export default function SessionDrawer({ onNewChat, onClose, navigation }: Props) {
+  const { cid, setCid, sessions, setSessions, refreshSessions, setAuthed, setUser } = useApp();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
 
@@ -36,14 +38,16 @@ export default function SessionDrawer({ onNewChat, onClose }: Props) {
   });
 
   const handleDelete = (id: string, title: string) => {
-    Alert.alert('Excluir conexão', `Excluir "${title}"?`, [
+    Alert.alert('Excluir conversa', `Excluir "${title}"?`, [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Excluir', style: 'destructive', onPress: async () => {
           await deleteSession(id).catch(() => {});
           const updated = sessions.filter(s => s.id !== id);
           setSessions(updated);
-          if (cid === id) setCid(updated[0]?.id ?? '');
+          if (cid === id) {
+            setCid(updated[0]?.id ?? '');
+          }
         },
       },
     ]);
@@ -61,19 +65,38 @@ export default function SessionDrawer({ onNewChat, onClose }: Props) {
     navigation.navigate(screen);
   };
 
+  const handleLogout = () => {
+    Alert.alert('Sair', 'Deseja sair da sua conta?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Sair', style: 'destructive', onPress: async () => {
+          await logout().catch(() => {});
+          setUser(null);
+          setAuthed(false);
+          onClose();
+        },
+      },
+    ]);
+  };
+
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Conexões</Text>
-        <TouchableOpacity onPress={onNewChat} style={styles.newBtn}>
-          <Text style={styles.newBtnText}>+ Nova conexão</Text>
+        <Text style={styles.title}>Conversas</Text>
+        <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+          <Text style={styles.closeIcon}>✕</Text>
         </TouchableOpacity>
       </View>
+
+      <TouchableOpacity style={styles.newBtn} onPress={onNewChat}>
+        <Text style={styles.newBtnText}>+ Nova Conversa</Text>
+      </TouchableOpacity>
 
       <FlatList
         data={sorted}
         keyExtractor={s => s.id}
-        contentContainerStyle={{ paddingBottom: spacing.lg }}
+        style={styles.list}
+        contentContainerStyle={{ paddingBottom: spacing.md }}
         renderItem={({ item }) => {
           const active = item.id === cid;
           return (
@@ -90,29 +113,26 @@ export default function SessionDrawer({ onNewChat, onClose }: Props) {
                     onSubmitEditing={() => handleRename(item.id)}
                     onBlur={() => handleRename(item.id)}
                     autoFocus
+                    selectTextOnFocus
                   />
                 ) : (
                   <>
-                    <Text style={[styles.itemTitle, active && styles.itemTitleActive]} numberOfLines={1}>
+                    <Text
+                      style={[styles.itemTitle, active && styles.itemTitleActive]}
+                      numberOfLines={1}
+                    >
                       {item.title}
                     </Text>
                     <View style={styles.itemMetaRow}>
-                      {item.module_name && (
+                      {!!item.module_name && (
                         <Text style={styles.moduleTag}>{item.module_name} · </Text>
                       )}
-                      <Text style={styles.itemMeta}>{fmtDate(item.updated_at || item.created_at)}</Text>
+                      <Text style={styles.itemMeta}>
+                        {fmtDate(item.updated_at || item.created_at)}
+                      </Text>
                     </View>
-                    {(item.child_id || item.child_name) && (
-                      <View style={styles.personBadge}>
-                        <Text style={styles.personBadgeText}>
-                          👶 {item.child_name || 'Filho(a)'}
-                        </Text>
-                      </View>
-                    )}
-                    {!item.child_id && (
-                      <View style={[styles.personBadge, styles.personBadgeSelf]}>
-                        <Text style={[styles.personBadgeText, styles.personBadgeTextSelf]}>👤 Eu</Text>
-                      </View>
+                    {!!item.child_name && (
+                      <Text style={styles.childBadge}>👶 {item.child_name}</Text>
                     )}
                   </>
                 )}
@@ -136,54 +156,78 @@ export default function SessionDrawer({ onNewChat, onClose }: Props) {
         }}
       />
 
-      {/* Navigation links */}
       <View style={styles.navSection}>
-        <View style={styles.navDivider} />
-        <TouchableOpacity style={styles.navItem} onPress={() => navAndClose('Store')}>
-          <Text style={styles.navIcon}>🛒</Text>
-          <Text style={styles.navLabel}>Comprar Créditos</Text>
+        <TouchableOpacity style={styles.navItem} onPress={() => navAndClose('Profile')}>
+          <Text style={styles.navIcon}>👤</Text>
+          <Text style={styles.navLabel}>Perfil</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navAndClose('Children')}>
-          <Text style={styles.navIcon}>👶</Text>
-          <Text style={styles.navLabel}>Cadastro de Filhos</Text>
+        <TouchableOpacity style={styles.navItem} onPress={() => navAndClose('Store')}>
+          <Text style={styles.navIcon}>🏪</Text>
+          <Text style={styles.navLabel}>Loja</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem} onPress={() => navAndClose('History')}>
           <Text style={styles.navIcon}>📋</Text>
-          <Text style={styles.navLabel}>Histórico de consumo</Text>
+          <Text style={styles.navLabel}>Histórico</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navAndClose('Profile')}>
-          <Text style={styles.navIcon}>👤</Text>
-          <Text style={styles.navLabel}>Perfil e Configurações</Text>
+        <TouchableOpacity style={styles.navItem} onPress={() => navAndClose('Children')}>
+          <Text style={styles.navIcon}>👶</Text>
+          <Text style={styles.navLabel}>Filhos</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={handleLogout}>
+          <Text style={styles.navIcon}>🚪</Text>
+          <Text style={[styles.navLabel, { color: colors.danger }]}>Sair</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.panel },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
+  container: { flex: 1, backgroundColor: colors.sidebar },
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    padding: spacing.md,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
+  },
   title: { color: colors.text, fontSize: font.lg, fontWeight: '700' },
-  newBtn: { backgroundColor: colors.accent, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.full },
-  newBtnText: { color: '#fff', fontSize: font.sm, fontWeight: '600' },
-  item: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2, borderBottomWidth: 1, borderBottomColor: colors.border + '44' },
-  itemActive: { backgroundColor: colors.accent + '22' },
+  closeBtn: { padding: spacing.xs },
+  closeIcon: { color: colors.muted, fontSize: font.lg },
+  newBtn: {
+    margin: spacing.md,
+    backgroundColor: colors.accent,
+    padding: spacing.sm + 2, borderRadius: radius.md, alignItems: 'center',
+  },
+  newBtnText: { color: '#fff', fontSize: font.base, fontWeight: '700' },
+  list: { flex: 1 },
+  item: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2,
+    borderBottomWidth: 1, borderBottomColor: colors.border + '44',
+  },
+  itemActive: { backgroundColor: colors.accent + '1a' },
   itemContent: { flex: 1, marginRight: spacing.sm },
   itemTitle: { color: colors.text, fontSize: font.base, fontWeight: '500', marginBottom: 2 },
   itemTitleActive: { color: colors.accent },
-  itemMetaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 3 },
-  itemMeta: { color: colors.muted, fontSize: font.sm },
+  itemMetaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
   moduleTag: { color: colors.accent, fontSize: font.sm },
-  personBadge: { alignSelf: 'flex-start', backgroundColor: '#a78bfa22', borderRadius: radius.full, paddingHorizontal: spacing.sm, paddingVertical: 1, marginTop: 2 },
-  personBadgeSelf: { backgroundColor: colors.muted + '22' },
-  personBadgeText: { color: '#a78bfa', fontSize: 10, fontWeight: '600' },
-  personBadgeTextSelf: { color: colors.muted },
+  itemMeta: { color: colors.muted, fontSize: font.sm },
+  childBadge: { color: colors.muted, fontSize: 11 },
   itemActions: { flexDirection: 'row', gap: spacing.sm },
   actionIcon: { fontSize: 14 },
-  editInput: { color: colors.text, fontSize: font.base, backgroundColor: colors.surface, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 4 },
-  navSection: { borderTopWidth: 1, borderTopColor: colors.border, paddingBottom: spacing.md },
-  navDivider: { height: 0 },
-  navItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2 },
+  editInput: {
+    color: colors.text, fontSize: font.base,
+    backgroundColor: colors.inputBg, borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm, paddingVertical: 4,
+    borderWidth: 1, borderColor: colors.border,
+  },
+  navSection: {
+    borderTopWidth: 1, borderTopColor: colors.border,
+    paddingBottom: spacing.sm,
+  },
+  navItem: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2,
+  },
   navIcon: { fontSize: 16, width: 22, textAlign: 'center' },
   navLabel: { color: colors.text, fontSize: font.base },
 });

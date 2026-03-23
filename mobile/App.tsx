@@ -6,14 +6,15 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { createDrawerNavigator, DrawerContentComponentProps } from '@react-navigation/drawer';
 import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-
 import { AppProvider, useApp } from './src/context/AppContext';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import ChatScreen from './src/screens/ChatScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import ProfilePasswordScreen from './src/screens/ProfilePasswordScreen';
 import StoreScreen from './src/screens/StoreScreen';
 import CheckoutScreen from './src/screens/CheckoutScreen';
+import ModuleCheckoutScreen from './src/screens/ModuleCheckoutScreen';
 import PurchaseSuccessScreen from './src/screens/PurchaseSuccessScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import ChildrenScreen from './src/screens/ChildrenScreen';
@@ -25,23 +26,19 @@ const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
 
 function DrawerContent(props: DrawerContentComponentProps) {
-  const { setCid } = useApp();
   const [showPicker, setShowPicker] = React.useState(false);
-
+  const { setCid, setShowModulePicker } = useApp();
   return (
     <>
       <SessionDrawer
         onNewChat={() => setShowPicker(true)}
         onClose={() => props.navigation.closeDrawer()}
+        navigation={props.navigation}
       />
       <ModulePicker
         visible={showPicker}
         onClose={() => setShowPicker(false)}
-        onSelected={(id) => {
-          setCid(id);
-          setShowPicker(false);
-          props.navigation.closeDrawer();
-        }}
+        onSelected={(_moduleId, _childId) => setShowPicker(false)}
       />
     </>
   );
@@ -51,7 +48,7 @@ function AppDrawer() {
   return (
     <Drawer.Navigator
       drawerContent={(props) => <DrawerContent {...props} />}
-      screenOptions={{ headerShown: false, drawerStyle: { width: 300 } }}
+      screenOptions={{ headerShown: false, drawerStyle: { width: 300, backgroundColor: colors.sidebar } }}
     >
       <Drawer.Screen name="Chat" component={ChatScreen} />
     </Drawer.Navigator>
@@ -60,7 +57,6 @@ function AppDrawer() {
 
 function AppNavigator() {
   const { authed, authReady } = useApp();
-
   if (!authReady) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg }}>
@@ -68,7 +64,6 @@ function AppNavigator() {
       </View>
     );
   }
-
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -76,8 +71,10 @@ function AppNavigator() {
           <>
             <Stack.Screen name="Main" component={AppDrawer} />
             <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="ProfilePassword" component={ProfilePasswordScreen} />
             <Stack.Screen name="Store" component={StoreScreen} />
             <Stack.Screen name="Checkout" component={CheckoutScreen} />
+            <Stack.Screen name="ModuleCheckout" component={ModuleCheckoutScreen} />
             <Stack.Screen name="PurchaseSuccess" component={PurchaseSuccessScreen} />
             <Stack.Screen name="History" component={HistoryScreen} />
             <Stack.Screen name="Children" component={ChildrenScreen} />

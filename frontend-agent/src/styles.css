@@ -127,7 +127,7 @@ body {
 /* ====== main (chat) ====== */
 .main { display: grid; grid-template-rows: auto 1fr auto; }
 .topbar { padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,.07); }
-.chat-area { overflow: auto; padding: 16px; }
+.chat-area { overflow-y: auto; overflow-x: hidden; padding: 0; }
 /* ===== Chat layout "padrão" ===== */
 
 
@@ -135,12 +135,13 @@ body {
 
 .messages {
   list-style: none;
-  margin: 0; 
-  padding: 0 10px 0 10px;
+  margin: 0 auto;
+  padding: 20px 24px 20px 24px;
   display: grid;
   gap: 10px;
+  width: 100%;
   max-width: 900px;
-  overflow: auto!important;
+  overflow: visible;
 }
 
 /* Cada mensagem agora é um bloco simples (sem grid de avatar) */
@@ -553,9 +554,9 @@ body {
 .topbar { display: flex; justify-content: flex-start; padding-inline: 16px; }
 .topbar #convTitle { width: 100%; max-width: var(--chat-max); margin: 0; }
 /* Área das mensagens centralizada */
-.chat-area { display: flex; justify-content: center; padding: 16px; padding-bottom: 120px; }
+.chat-area { display: flex; justify-content: center; align-items: flex-start; overflow-y: auto; overflow-x: hidden; padding: 0 0 120px 0; }
 /* A grade de mensagens vira a “coluna” central */
-.messages { margin: 0 auto; width: 100%; max-width: var(--chat-max); }
+.messages { margin: 0 auto; width: 100%; max-width: var(--chat-max); overflow: visible; }
 /* Mantém o comportamento novo: user à direita, agente 100% da coluna */
 .message.user .bubble { max-width: min(72ch, 80%); margin-left: auto; }
 .message.assistant .bubble { width: 100%; max-width: none; }
@@ -625,7 +626,7 @@ body {
   margin-left: 0;
   margin-right: auto;
   box-shadow:
-    0 8px 26px rgba(0,0,0,.28),
+    0 2px 8px rgba(0,0,0,.14),
     inset 0 0 0 1px rgba(255,255,255,.03);
 }
 /* Mantém o usuário coerente */
@@ -764,8 +765,8 @@ body {
 
 /* Área das mensagens centralizada */
 :root { --chat-max: 900px; }
-.chat-area { display: flex; justify-content: center; padding: 16px; padding-bottom: 120px; }
-.messages { margin: 0 auto; width: 100%; max-width: var(--chat-max); }
+.chat-area { display: flex; justify-content: center; align-items: flex-start; overflow-y: auto; overflow-x: hidden; padding: 0 0 120px 0; }
+.messages { margin: 0 auto; width: 100%; max-width: var(--chat-max); overflow: visible; }
 
 /* Composer fixo (sticky) e centralizado */
 .composer-wrap {
@@ -1474,8 +1475,8 @@ body {
 
 /* D) CHAT COLUNA • Centralização e largura estável */
 :root { --chat-max: 900px; }
-.chat-area { display: flex; justify-content: center; padding: 16px; padding-bottom: 120px; }
-.messages  { margin: 0 auto; width: 100%; max-width: var(--chat-max); padding-bottom: 8px; }
+.chat-area { display: flex; justify-content: center; align-items: flex-start; overflow-y: auto; overflow-x: hidden; padding: 0 0 120px 0; }
+.messages  { margin: 0 auto; width: 100%; max-width: var(--chat-max); overflow: visible; padding-bottom: 8px; }
 
 /* Mobile: mensagens ocupam a largura total com respiro lateral */
 @media (max-width: 960px) {
@@ -1916,9 +1917,11 @@ body {
   border: 1px solid rgba(255,255,255,.08);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  padding: 40px 36px 32px;
+  padding: 32px 32px 24px;
   width: 100%;
-  max-width: 560px;
+  max-width: 780px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1933,7 +1936,7 @@ body {
 }
 
 .module-picker-subtitle {
-  margin: 0 0 24px;
+  margin: 0 0 16px;
   font-size: 14px;
   color: var(--muted);
   text-align: center;
@@ -1947,7 +1950,7 @@ body {
 
 .module-picker-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   gap: 16px;
 }
 
@@ -1955,12 +1958,12 @@ body {
   background: var(--panel-2);
   border: 1px solid rgba(255,255,255,.08);
   border-radius: 12px;
-  padding: 24px 20px;
+  padding: 16px 16px;
   cursor: pointer;
   text-align: left;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   transition: border-color .18s, background .18s, transform .15s;
   color: var(--text);
 }
@@ -1971,16 +1974,18 @@ body {
   transform: translateY(-2px);
 }
 
-.module-card-img {
+.module-picker .module-card-img {
   align-self: center;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 64px;
-  height: 64px;
+  width: 48px;
+  height: 48px;
 }
 .module-card-img svg,
 .module-card-img img { width: 64px; height: 64px; }
+.module-picker .module-card-img svg,
+.module-picker .module-card-img img { width: 48px; height: 48px; }
 
 .module-card-name {
   font-size: 16px;
@@ -2234,6 +2239,7 @@ html, body, .main, .chat-area, .messages {
 [data-theme="light"] .message.assistant .bubble {
   background: #f0f2f8;
   border-color: rgba(0,0,0,.06);
+  box-shadow: 0 1px 4px rgba(0,0,0,.07);
 }
 [data-theme="light"] .conv-link {
   background: #f7f8fa;
@@ -3602,3 +3608,111 @@ body.light .amaracyta-symbol { color: #333; } /* exemplo para tema claro */
 
 /* Logo img in Topbar */
 .topbar-logo-img { height: 36px; width: auto; object-fit: contain; }
+
+/* ===== FLOW ACTION BUTTON ===== */
+/* Botão exibido após resposta do agente para avançar o fluxo do módulo */
+.flow-action {
+  display: flex;
+  justify-content: center;
+  padding: 16px 24px 8px;
+  width: 100%;
+  max-width: var(--chat-max, 900px);
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+.flow-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 32px;
+  background: linear-gradient(135deg, var(--accent, #5697ff) 0%, #7b5ea7 100%);
+  color: #fff;
+  border: none;
+  border-radius: 40px;
+  font: 600 15px/1 inherit;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(86,151,255,.35);
+  transition: filter .15s, transform .12s;
+}
+.flow-action-btn:hover  { filter: brightness(1.1); transform: translateY(-1px); }
+.flow-action-btn:active { filter: brightness(.95); transform: translateY(0); }
+
+[data-theme="light"] .flow-action-btn {
+  box-shadow: 0 4px 16px rgba(86,151,255,.28);
+}
+.download-actions { gap: 12px; flex-wrap: wrap; }
+.flow-action-btn.download-btn {
+  background: linear-gradient(135deg, #7c3aed 0%, #5697ff 100%);
+  font-size: 14px;
+}
+.flow-action-btn.download-btn.secondary {
+  background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+  box-shadow: 0 4px 16px rgba(0,0,0,.3);
+}
+
+/* ===== CHAT LAYOUT • OVERRIDE FINAL ===== */
+/*
+ * Estrutura:  .main (flex col) → .chat-area (scroll, flex col) → .messages (centralizado) + .composer-wrap (sticky bottom)
+ *
+ * .chat-area é o container de scroll (largura total da coluna) → scrollbar no extremo direito.
+ * .messages centraliza os bubbles com max-width dentro do scroll.
+ * .composer-wrap usa position:sticky bottom:0 → sempre visível sem ser fixed.
+ */
+
+/* .main preenche a célula do grid como coluna flex */
+.main {
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  height: 100% !important;
+}
+
+/* .chat-area: flex col, NÃO scrola — .messages é o scroll container */
+.chat-area {
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  min-height: 0 !important;
+}
+
+/* .messages: scroll container centralizado, ocupa espaço restante */
+.messages {
+  flex: 1 !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  scroll-behavior: smooth !important;
+  margin: 0 auto !important;
+  padding: 20px 24px 20px !important;
+  width: 100% !important;
+  max-width: var(--chat-max, 900px) !important;
+  box-sizing: border-box !important;
+}
+
+/* .composer-wrap: item fixo na base do flex, abaixo de .messages */
+.composer-wrap {
+  position: relative !important;
+  bottom: auto !important;
+  left: auto !important;
+  right: auto !important;
+  flex-shrink: 0 !important;
+  width: 100% !important;
+  display: flex !important;
+  justify-content: center !important;
+  padding: 8px var(--shell-pad, 16px) !important;
+  box-sizing: border-box !important;
+}
+
+/* .composer centralizado na mesma largura dos bubbles */
+.composer {
+  width: 100% !important;
+  max-width: var(--chat-max, 900px) !important;
+  margin-inline: auto !important;
+}
+
+#prompt {
+  min-height: 40px !important;
+}

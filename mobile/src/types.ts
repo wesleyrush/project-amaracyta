@@ -4,6 +4,7 @@ export interface Message {
   role: Role;
   content: string;
   ts?: string;
+  hidden?: boolean;
 }
 
 export interface SessionListItem {
@@ -31,6 +32,8 @@ export interface Session {
   module_use_opening_prompt?: boolean;
   module_opening_prompt?: string | null;
   module_welcome_message?: string | null;
+  flow_step?: number;
+  flow_next_button?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
   messages: Message[];
@@ -61,6 +64,7 @@ export interface Child {
   birth_state?: string | null;
   birth_city?: string | null;
   created_at?: string | null;
+  updated_at?: string | null;
 }
 
 export interface UserModule {
@@ -107,6 +111,7 @@ export interface SiteSettings {
   site_title?: string;
   logo_url?: string;
   logo_svg?: string;
+  site_name?: string | null;
 }
 
 export interface CoinBalances {
