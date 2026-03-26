@@ -27,6 +27,8 @@ type Ctx = {
   authed: boolean;
   showModulePicker: boolean;
   setShowModulePicker: (v: boolean) => void;
+  moduleStarting: boolean;
+  setModuleStarting: (v: boolean) => void;
   balances: CoinBalances;
   costs: CoinCosts;
   setBalances: (v: CoinBalances) => void;
@@ -51,6 +53,7 @@ export function AppProvider({ children }: {children: ReactNode}) {
   const [authReady, setAuthReady] = useState(false);
   const [authed, setAuthed] = useState(false);
   const [showModulePicker, setShowModulePicker] = useState(false);
+  const [moduleStarting, setModuleStarting] = useState(false);
   const [balances, setBalances] = useState<CoinBalances>(ZERO_BALANCES);
   const [costs, setCosts] = useState<CoinCosts>(DEFAULT_COSTS);
   const [userModules, setUserModules] = useState<UserModule[]>([]);
@@ -147,6 +150,7 @@ export function AppProvider({ children }: {children: ReactNode}) {
     lastCidKey,
     authReady, authed,
     showModulePicker, setShowModulePicker,
+    moduleStarting, setModuleStarting,
     balances, costs, setBalances, refreshBalance,
     userModules, refreshUserModules,
     siteSettings, refreshSettings,

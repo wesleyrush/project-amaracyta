@@ -13,6 +13,7 @@ export interface ReportOptions {
   birthDate?: string;      // dd/mm/aaaa
   consultationDate: string; // data formatada
   messages: Message[];
+  flowStep?: number;       // quantos bubbles de fluxo pular além do welcome
   mandalaDataUrl?: string;
   logoUrl?: string;
   logoSvg?: string;
@@ -22,13 +23,13 @@ export interface ReportOptions {
 export function openPdfReport(opts: ReportOptions): void {
   const {
     moduleName, userName, userEmail, birthDate,
-    consultationDate, messages,
+    consultationDate, messages, flowStep = 0,
     mandalaDataUrl,
     logoUrl, logoSvg, siteTitle = 'Jornada Akasha',
   } = opts;
 
-  // Apenas mensagens do agente visíveis — pula a primeira (welcome/abertura)
-  const agentMsgs = messages.filter(m => m.role === 'assistant' && !m.hidden).slice(1);
+  // Pula welcome (1) + bubbles de avanço de fluxo (flowStep)
+  const agentMsgs = messages.filter(m => m.role === 'assistant' && !m.hidden).slice(1 + flowStep);
 
   const logoHtml = logoUrl
     ? `<img src="${logoUrl}" class="logo-img" alt="${siteTitle}">`
@@ -36,12 +37,11 @@ export function openPdfReport(opts: ReportOptions): void {
       ? `<div class="logo-svg">${logoSvg}</div>`
       : `<div class="logo-text">${siteTitle}</div>`;
 
-  const metaItems = [
-    `<div class="meta-item"><span class="meta-key">Consulente</span><span class="meta-val">${userName}</span></div>`,
-    userEmail ? `<div class="meta-item"><span class="meta-key">E-mail</span><span class="meta-val">${userEmail}</span></div>` : '',
-    birthDate ? `<div class="meta-item"><span class="meta-key">Nascimento</span><span class="meta-val">${birthDate}</span></div>` : '',
-    `<div class="meta-item"><span class="meta-key">Data da Consulta</span><span class="meta-val">${consultationDate}</span></div>`,
-    `<div class="meta-item"><span class="meta-key">Módulo</span><span class="meta-val">${moduleName}</span></div>`,
+  const headerRows = [
+    `<tr><td class="hk">MÓDULO</td><td class="hv">${moduleName}</td></tr>`,
+    `<tr><td class="hk">CONSULENTE</td><td class="hv">${userName}</td></tr>`,
+    birthDate  ? `<tr><td class="hk">NASCIMENTO</td><td class="hv">${birthDate}</td></tr>` : '',
+    `<tr><td class="hk">DATA DA CONSULTA</td><td class="hv">${consultationDate}</td></tr>`,
   ].filter(Boolean).join('');
 
   const messagesHtml = agentMsgs.length
@@ -86,34 +86,70 @@ export function openPdfReport(opts: ReportOptions): void {
   /* ── CABEÇALHO ── */
   .report-header {
     display: flex;
-    align-items: flex-start;
-    gap: 22px;
-    padding-bottom: 22px;
-    border-bottom: 2.5px solid #3730a3;
+    align-items: stretch;
+    border: 1.5px solid #3730a3;
+    border-radius: 5px;
     margin-bottom: 28px;
+    overflow: hidden;
   }
-  .logo-img { height: 64px; width: auto; object-fit: contain; flex-shrink: 0; }
-  .logo-svg { width: 64px; flex-shrink: 0; }
+  .header-logo-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 16px;
+    border-right: 1.5px solid #3730a3;
+    flex: 0 0 33%;
+    background: #fafafe;
+  }
+  .logo-img { width: 100%; max-height: 110px; object-fit: contain; }
+  .logo-svg { width: 100%; }
   .logo-svg svg { width: 100%; height: auto; }
   .logo-text {
-    font-size: 20pt;
+    font-size: 10pt;
     font-weight: 700;
     color: #3730a3;
-    flex-shrink: 0;
-    line-height: 1.2;
+    text-align: center;
+    line-height: 1.3;
   }
-  .header-info { flex: 1; }
-  .report-title {
-    font-size: 17pt;
+  .header-table {
+    flex: 1;
+    border-collapse: collapse;
+  }
+  .header-table tr { border-bottom: 1px solid #e5e7eb; }
+  .header-table tr:last-child { border-bottom: none; }
+  .hk {
+    font-size: 8pt;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #3730a3;
+    background: #f5f5ff;
+    padding: 2px 8px;
+    white-space: nowrap;
+    border-right: 1px solid #e5e7eb;
+    width: 145px;
+    vertical-align: middle;
+  }
+  .hv {
+    padding: 2px 8px;
+    font-size: 9pt;
+    color: #111827;
+    vertical-align: middle;
+  }
+
+  /* ── TÍTULO DO RELATÓRIO ── */
+  .report-title-bar {
+    text-align: center;
+    font-size: 13pt;
     font-weight: 700;
     color: #3730a3;
-    line-height: 1.25;
-    margin-bottom: 14px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 10px 0 14px;
+    border-bottom: 1.5px solid #c7d2fe;
+    margin-bottom: 20px;
   }
-  .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 24px; }
-  .meta-item { display: flex; gap: 6px; font-size: 9.5pt; }
-  .meta-key { color: #6b7280; font-weight: 600; white-space: nowrap; min-width: 110px; }
-  .meta-val { color: #111827; }
 
   /* ── SEÇÃO ── */
   .section { margin-bottom: 32px; }
@@ -195,12 +231,15 @@ export function openPdfReport(opts: ReportOptions): void {
 <body>
 <div class="report">
   <header class="report-header">
-    ${logoHtml}
-    <div class="header-info">
-      <div class="report-title">${moduleName}</div>
-      <div class="meta-grid">${metaItems}</div>
+    <div class="header-logo-box">
+      ${logoHtml}
     </div>
+    <table class="header-table">
+      ${headerRows}
+    </table>
   </header>
+
+  <div class="report-title-bar">Relatório Final</div>
 
   <div class="section">
     ${messagesHtml}

@@ -77,7 +77,7 @@ export default function ModuleCheckoutScreen() {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.backBtn}>← Voltar</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Finalizar Compra</Text>
+        <Text style={styles.headerTitle}>Finalizar Ativação</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">

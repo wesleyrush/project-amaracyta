@@ -1,5 +1,4 @@
-require('dotenv').config({ path: require('path').resolve(__dirname, '../../backend-agent/.env.dev') });
-require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
+require('dotenv').config({ path: require('path').resolve(__dirname, '../.env'), override: true });
 
 const express = require('express');
 const cors = require('cors');
@@ -39,7 +38,9 @@ app.use('/api/coin-proportions', coinProportionsRouter);
 app.use('/api/orders',           ordersRouter);
 app.use('/api/upload',           uploadRouter);
 app.use('/api/module-packages',  require('./routes/modulePackages'));
-app.use('/api/settings', require('./routes/settings'));
+app.use('/api/module-orders',    require('./routes/moduleOrders'));
+app.use('/api/settings',   require('./routes/settings'));
+app.use('/api/dashboard',  require('./routes/dashboard'));
 app.use('/uploads', require('express').static(require('path').resolve(__dirname, '../uploads')));
 
 // Error handler

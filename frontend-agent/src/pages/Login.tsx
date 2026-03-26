@@ -24,14 +24,14 @@ export default function Login() {
   }
 
   return (
-    <>
-      <p style={{ textAlign: 'center', margin: '20px 0 8px 0' }}>
-        <AkashaLogo size={128} />
-      </p>
-      <h1 style={{ textAlign: 'center', margin: '0 0 16px 0' }}>Amaracytã</h1>
+    <div className="auth-page">
+      <div className="auth-brand">
+        <AkashaLogo size={96} />
+        <h1 className="auth-brand-name">Amaracytã</h1>
+      </div>
 
       <div className="auth-card">
-        <h2 style={{ textAlign: 'center', margin: '0 0 16px 0' }}>Acessar</h2>
+        <h2 className="auth-card-title">Acessar</h2>
         <form onSubmit={onSubmit}>
           <input
             type="email"
@@ -57,6 +57,6 @@ export default function Login() {
         <p className="muted">Não tem conta? <a href="/register">Criar conta</a></p>
         {err && <p className="muted" role="alert">{err}</p>}
       </div>
-    </>
+    </div>
   );
 }

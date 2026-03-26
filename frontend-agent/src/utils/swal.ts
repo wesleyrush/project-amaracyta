@@ -69,6 +69,23 @@ export const swal = {
     });
   },
 
+  /** Toast de aviso (4 s, canto superior direito) */
+  warning(title: string, text?: string) {
+    const c = getColors();
+    return Swal.fire({
+      icon: 'warning',
+      title,
+      text,
+      toast: true,
+      position: 'top-end',
+      showConfirmButton: false,
+      timer: 4000,
+      timerProgressBar: true,
+      background: c.background,
+      color: c.color,
+    });
+  },
+
   /** Diálogo de confirmação destrutiva (ex: excluir). Retorna true se confirmado. */
   async confirm(title: string, text?: string, confirmLabel = 'Sim, excluir'): Promise<boolean> {
     const c = getColors();
@@ -80,6 +97,26 @@ export const swal = {
       confirmButtonText: confirmLabel,
       cancelButtonText: 'Cancelar',
       confirmButtonColor: '#ef4444',
+      cancelButtonColor: c.cancelBg,
+      background: c.background,
+      color: c.color,
+      reverseButtons: true,
+      customClass: { cancelButton: 'swal-cancel-btn' },
+    });
+    return result.isConfirmed;
+  },
+
+  /** Diálogo de confirmação não-destrutiva (ex: seleção de módulo). Retorna true se confirmado. */
+  async ask(title: string, text?: string, confirmLabel = 'Confirmar'): Promise<boolean> {
+    const c = getColors();
+    const result = await Swal.fire({
+      icon: 'question',
+      title,
+      text,
+      showCancelButton: true,
+      confirmButtonText: confirmLabel,
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: c.confirmColor,
       cancelButtonColor: c.cancelBg,
       background: c.background,
       color: c.color,

@@ -83,12 +83,12 @@ export default function ModuleCheckoutPage() {
           ← Voltar à loja
         </button>
 
-        <h1 className="checkout-title">Finalizar Compra — Módulos</h1>
+        <h1 className="checkout-title">Finalizar Ativação - Módulos</h1>
 
         <div className="checkout-layout">
           {/* Resumo */}
           <div className="checkout-summary">
-            <h3>Resumo do pedido</h3>
+            <h3>Resumo</h3>
             {modules.map(m => {
               const qty = moduleQuantities[m.id] ?? 1;
               const linePrice = m.price_brl != null ? m.price_brl * qty : null;

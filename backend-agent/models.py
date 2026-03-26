@@ -51,7 +51,8 @@ class Module(Base):
     opening_prompt = Column(Text, nullable=True)
     few_shot = Column(Text, nullable=True)
     welcome_message = Column(Text, nullable=True)
-    use_opening_prompt = Column(Boolean, nullable=False, default=False)
+    use_opening_prompt  = Column(Boolean, nullable=False, default=False)
+    show_opening_prompt = Column(Boolean, nullable=False, default=False, server_default='0')
     is_active = Column(Boolean, nullable=False, default=True)
     module_type = Column(Enum('free', 'fixed'), nullable=False, default='free')
     price_brl   = Column(Numeric(10, 2), nullable=True)
@@ -78,11 +79,13 @@ class ModuleFlowStep(Base):
     step_order   = Column(Integer, nullable=False)           # 1, 2, 3 ...
     label        = Column(String(200), nullable=True)        # Descrição interna (admin)
     # Texto do botão exibido ANTES deste passo ser executado
-    button_label = Column(String(200), nullable=True)
+    button_label    = Column(String(200), nullable=True)
+    button_response = Column(String(400), nullable=True)   # Resposta do usuário exibida no chat ao clicar
     # Template do prompt enviado ao agente neste passo
     # Variáveis: {first} {full_name} {initiatic_name} {birth_date} {birth_time}
     #            {birth_country} {birth_state} {birth_city} {birth_location}
-    prompt_template     = Column(Text, nullable=True)
+    prompt_template      = Column(Text, nullable=True)
+    step_system_prompt   = Column(Text, nullable=True)   # Substitui o system_prompt do módulo neste passo
     include_user_profile = Column(Boolean, nullable=False, default=False)
     is_hidden            = Column(Boolean, nullable=False, default=True)  # Ocultar da UI
     created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))

@@ -76,6 +76,25 @@ export const swal = {
     return result.isConfirmed;
   },
 
+  /** Confirmação para ações não-destrutivas (duplicar, exportar, etc.) */
+  async confirmAction(title: string, text?: string, confirmLabel = 'Confirmar'): Promise<boolean> {
+    const result = await Swal.fire({
+      icon: 'question',
+      title,
+      text,
+      showCancelButton: true,
+      confirmButtonText: confirmLabel,
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: PRIMARY,
+      cancelButtonColor: CANCEL_BG,
+      background: BG,
+      color: COLOR,
+      reverseButtons: true,
+      customClass: { cancelButton: 'swal-admin-cancel' },
+    });
+    return result.isConfirmed;
+  },
+
   /** Confirmação para ações de toggle (ativar/desativar) */
   async confirmToggle(title: string, text?: string): Promise<boolean> {
     const result = await Swal.fire({

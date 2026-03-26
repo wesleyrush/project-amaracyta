@@ -6,7 +6,7 @@ const { requireAuth, requirePermission } = require('../middleware/auth');
 router.get('/', requireAuth, async (req, res) => {
   const [rows] = await db.query(
     `SELECT id, slug, name, description, image_svg, system_prompt,
-            opening_prompt, few_shot, welcome_message, use_opening_prompt,
+            opening_prompt, few_shot, welcome_message, use_opening_prompt, show_opening_prompt,
             is_active, module_type, price_brl, created_at
      FROM modules ORDER BY id DESC`
   );
@@ -23,53 +23,69 @@ router.get('/:id', requireAuth, async (req, res) => {
 // POST /api/modules — criar módulo
 router.post('/', requireAuth, requirePermission('agente', 'insert'), async (req, res) => {
   const { slug, name, description, image_svg, system_prompt,
-          opening_prompt, few_shot, welcome_message, use_opening_prompt,
+          opening_prompt, few_shot, welcome_message, use_opening_prompt, show_opening_prompt,
           module_type, price_brl } = req.body;
   if (!slug || !name || !system_prompt)
     return res.status(400).json({ error: 'slug, name e system_prompt são obrigatórios' });
 
-  const [result] = await db.query(
-    `INSERT INTO modules
-       (slug, name, description, image_svg, system_prompt,
-        opening_prompt, few_shot, welcome_message, use_opening_prompt,
-        module_type, price_brl)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
-    [
-      slug, name, description || null, image_svg || null, system_prompt,
-      opening_prompt || null, few_shot || null, welcome_message || null,
-      use_opening_prompt ? 1 : 0,
-      module_type || 'free',
-      (module_type === 'fixed' && price_brl) ? price_brl : null,
-    ]
-  );
-  res.status(201).json({ id: result.insertId });
+  try {
+    const [result] = await db.query(
+      `INSERT INTO modules
+         (slug, name, description, image_svg, system_prompt,
+          opening_prompt, few_shot, welcome_message, use_opening_prompt, show_opening_prompt,
+          module_type, price_brl)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+      [
+        slug, name, description || null, image_svg || null, system_prompt,
+        opening_prompt || null, few_shot || null, welcome_message || null,
+        use_opening_prompt ? 1 : 0,
+        show_opening_prompt ? 1 : 0,
+        module_type || 'free',
+        (module_type === 'fixed' && price_brl) ? price_brl : null,
+      ]
+    );
+    res.status(201).json({ id: result.insertId });
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: `O slug "${slug}" já está em uso. Escolha outro.` });
+    }
+    throw err;
+  }
 });
 
 // PUT /api/modules/:id — atualizar módulo
 router.put('/:id', requireAuth, requirePermission('agente', 'update'), async (req, res) => {
   const { slug, name, description, image_svg, system_prompt,
-          opening_prompt, few_shot, welcome_message, use_opening_prompt,
+          opening_prompt, few_shot, welcome_message, use_opening_prompt, show_opening_prompt,
           module_type, price_brl } = req.body;
   if (!slug || !name || !system_prompt)
     return res.status(400).json({ error: 'slug, name e system_prompt são obrigatórios' });
 
-  const [result] = await db.query(
-    `UPDATE modules
-     SET slug=?, name=?, description=?, image_svg=?, system_prompt=?,
-         opening_prompt=?, few_shot=?, welcome_message=?, use_opening_prompt=?,
-         module_type=?, price_brl=?
-     WHERE id=?`,
-    [
-      slug, name, description || null, image_svg || null, system_prompt,
-      opening_prompt || null, few_shot || null, welcome_message || null,
-      use_opening_prompt ? 1 : 0,
-      module_type || 'free',
-      (module_type === 'fixed' && price_brl) ? price_brl : null,
-      req.params.id,
-    ]
-  );
-  if (!result.affectedRows) return res.status(404).json({ error: 'Módulo não encontrado' });
-  res.json({ ok: true });
+  try {
+    const [result] = await db.query(
+      `UPDATE modules
+       SET slug=?, name=?, description=?, image_svg=?, system_prompt=?,
+           opening_prompt=?, few_shot=?, welcome_message=?, use_opening_prompt=?, show_opening_prompt=?,
+           module_type=?, price_brl=?
+       WHERE id=?`,
+      [
+        slug, name, description || null, image_svg || null, system_prompt,
+        opening_prompt || null, few_shot || null, welcome_message || null,
+        use_opening_prompt ? 1 : 0,
+        show_opening_prompt ? 1 : 0,
+        module_type || 'free',
+        (module_type === 'fixed' && price_brl) ? price_brl : null,
+        req.params.id,
+      ]
+    );
+    if (!result.affectedRows) return res.status(404).json({ error: 'Módulo não encontrado' });
+    res.json({ ok: true });
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: `O slug "${slug}" já está em uso. Escolha outro.` });
+    }
+    throw err;
+  }
 });
 
 // PATCH /api/modules/:id/toggle — ativar/desativar
@@ -102,7 +118,7 @@ router.get('/:id/flow-steps', requireAuth, async (req, res) => {
 
 // POST /api/modules/:id/flow-steps
 router.post('/:id/flow-steps', requireAuth, requirePermission('agente', 'insert'), async (req, res) => {
-  const { step_order, label, button_label, prompt_template, include_user_profile, is_hidden } = req.body;
+  const { step_order, label, button_label, button_response, prompt_template, step_system_prompt, include_user_profile, is_hidden } = req.body;
   if (!step_order) return res.status(400).json({ error: 'step_order é obrigatório' });
 
   const [existing] = await db.query(
@@ -113,11 +129,12 @@ router.post('/:id/flow-steps', requireAuth, requirePermission('agente', 'insert'
 
   const [result] = await db.query(
     `INSERT INTO module_flow_steps
-       (module_id, step_order, label, button_label, prompt_template, include_user_profile, is_hidden)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+       (module_id, step_order, label, button_label, button_response, prompt_template, step_system_prompt, include_user_profile, is_hidden)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       req.params.id, step_order,
-      label || null, button_label || null, prompt_template || null,
+      label || null, button_label || null, button_response || null, prompt_template || null,
+      step_system_prompt || null,
       include_user_profile ? 1 : 0,
       is_hidden ? 1 : 0,
     ]
@@ -128,7 +145,7 @@ router.post('/:id/flow-steps', requireAuth, requirePermission('agente', 'insert'
 
 // PUT /api/modules/:id/flow-steps/:stepId
 router.put('/:id/flow-steps/:stepId', requireAuth, requirePermission('agente', 'update'), async (req, res) => {
-  const { step_order, label, button_label, prompt_template, include_user_profile, is_hidden } = req.body;
+  const { step_order, label, button_label, button_response, prompt_template, step_system_prompt, include_user_profile, is_hidden } = req.body;
 
   const [existing] = await db.query(
     'SELECT id FROM module_flow_steps WHERE id = ? AND module_id = ?',
@@ -138,10 +155,12 @@ router.put('/:id/flow-steps/:stepId', requireAuth, requirePermission('agente', '
 
   await db.query(
     `UPDATE module_flow_steps
-     SET step_order=?, label=?, button_label=?, prompt_template=?, include_user_profile=?, is_hidden=?, updated_at=NOW()
+     SET step_order=?, label=?, button_label=?, button_response=?, prompt_template=?, step_system_prompt=?,
+         include_user_profile=?, is_hidden=?, updated_at=NOW()
      WHERE id=?`,
     [
-      step_order, label || null, button_label || null, prompt_template || null,
+      step_order, label || null, button_label || null, button_response || null, prompt_template || null,
+      step_system_prompt || null,
       include_user_profile ? 1 : 0,
       is_hidden ? 1 : 0,
       req.params.stepId,

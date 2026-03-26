@@ -12,7 +12,7 @@ export const deleteSession = (cid:string) =>
   apiWrite<{status:'ok'}>(`/sessions/${encodeURIComponent(cid)}`,'DELETE');
 
 export const advanceFlow = (cid: string) =>
-  apiWrite<{ status: 'ok'; flow_step: number; flow_next_button: string | null }>(
+  apiWrite<{ status: 'ok'; flow_step: number; flow_next_button: string | null; flow_next_response: string | null }>(
     `/sessions/${encodeURIComponent(cid)}/flow-advance`, 'POST'
   );
 

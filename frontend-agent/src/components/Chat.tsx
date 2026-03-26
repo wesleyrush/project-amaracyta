@@ -18,7 +18,7 @@ import { swal } from '../utils/swal';
 
 export default function Chat(){
   const navigate = useNavigate();
-  const { cid, user, balances, costs, setBalances, siteSettings } = useApp();
+  const { cid, user, balances, costs, setBalances, siteSettings, moduleStarting, setModuleStarting } = useApp();
   const noBalance = balances.gold < costs.gold && balances.silver < costs.silver && balances.bronze < costs.bronze;
 
   const [msgs, setMsgs] = useState<Message[]>([]);
@@ -29,8 +29,10 @@ export default function Chat(){
   const [thinking, setThinking] = useState(false);
   const [moduleType, setModuleType] = useState<'free' | 'fixed' | null>(null);
   const [flowNextButton, setFlowNextButton] = useState<string | null>(null);
+  const [flowNextResponse, setFlowNextResponse] = useState<string | null>(null);
   const [flowStep, setFlowStep] = useState(0);
   const [moduleName, setModuleName] = useState<string | null>(null);
+  const [childName, setChildName] = useState<string | null>(null);
   const [sessionCreatedAt, setSessionCreatedAt] = useState<string | null>(null);
   /** true depois que o agente respondeu de verdade (via SSE ou mensagem no banco) */
   const [hasRealAgentResponse, setHasRealAgentResponse] = useState(false);
@@ -72,14 +74,17 @@ export default function Chat(){
       setHasRealAgentResponse(false);
       setFlowStep(0);
       setModuleName(null);
+      setChildName(null);
       setSessionCreatedAt(null);
       setMandalaDataUrl(null);
 
       const s = await getSession(cid);
       setModuleType(s.module_type ?? 'free');
       setFlowNextButton(s.flow_next_button ?? null);
+      setFlowNextResponse(s.flow_next_response ?? null);
       setFlowStep(s.flow_step ?? 0);
       setModuleName(s.module_name ?? null);
+      setChildName(s.child_name ?? null);
       setSessionCreatedAt(s.created_at ?? null);
 
       const first = (user?.full_name || '').trim().split(/\s+/)[0] || 'Amigo';
@@ -91,12 +96,13 @@ export default function Chat(){
         ? openingTemplate.replace(/\{first\}/g, first).trim()
         : renderOpening(first).trim();
 
+      const showOpeningPrompt = s.module_show_opening_prompt ?? false;
       const filtered = (s.messages || []).filter((m) => {
         if (m.hidden) return false;  // mensagens ocultas do fluxo
         const role = (m.role || '').toLowerCase();
         const content = (m.content || '').trim();
-        // Não exibe o opening prompt enviado pelo frontend (mensagem técnica)
-        if (role === 'user' && content === openingResolved) return false;
+        // Opening prompt: exibe ou oculta conforme configuração do módulo
+        if (role === 'user' && content === openingResolved && !showOpeningPrompt) return false;
         if (role === 'user' && content === REINC_PROMPT_HIDDEN) return false;
         return true;
       });
@@ -119,27 +125,13 @@ export default function Chat(){
           // Não verifica noBalance aqui — o servidor rejeita se não houver saldo.
           const alreadySent = openingSentKey && sessionStorage.getItem(openingSentKey) === '1';
           if (!alreadySent) {
-            setMsgs(prev => {
-              if (waitingIdxRef.current !== null) return prev;
-              const next = [...prev, {
-                role: 'assistant',
-                content: 'Acessando dados quânticos'
-              } as Message];
-              waitingIdxRef.current = next.length - 1;
-              return next;
-            });
-
             setBusy(true);
             try {
               await sendOpening(cid);
               sessionStorage.setItem(openingSentKey, '1');
               setStreaming(true);
             } catch {
-              // Falha (sem saldo ou erro de rede): remove "aguarde" e mostra welcome message
-              if (waitingIdxRef.current !== null) {
-                setMsgs(prev => prev.filter((_, i) => i !== waitingIdxRef.current!));
-                waitingIdxRef.current = null;
-              }
+              // Falha (sem saldo ou erro de rede): mostra welcome message
               const rawWelcome = s.module_welcome_message || `Olá, ${first}! Como posso ajudar hoje?`;
               setMsgs(prev => {
                 const fallback = rawWelcome.replace(/\{first\}/g, first);
@@ -163,10 +155,12 @@ export default function Chat(){
             if (alreadyHas) return prev;
             return [...prev, { role: 'assistant', content: welcomeText } as Message];
           });
+          setModuleStarting(false);
           setBusy(false);
           setStreaming(false);
         }
       } else {
+        setModuleStarting(false);
         setBusy(false);
         setStreaming(false);
       }
@@ -180,10 +174,12 @@ export default function Chat(){
   // STREAM (SSE)
   useSSE(cid, streaming, {
     onToken: (t) => {
-      // Remove a bolha "Aguarde..." na chegada do primeiro token
+      // Remove a bolha "Aguarde..." e desativa o overlay de loading ao primeiro token
+      if (moduleStarting) setModuleStarting(false);
       if (waitingIdxRef.current !== null) {
-        setMsgs(prev => prev.filter((_, i) => i !== waitingIdxRef.current!));
+        const idx = waitingIdxRef.current;
         waitingIdxRef.current = null;
+        setMsgs(prev => prev.filter((_, i) => i !== idx));
       }
       setThinking(false);
       // Acumula e exibe o conteúdo sendo transmitido em tempo real
@@ -192,8 +188,9 @@ export default function Chat(){
     },
     onDone: () => {
       if (waitingIdxRef.current !== null) {
-        setMsgs(prev => prev.filter((_, i) => i !== waitingIdxRef.current!));
+        const idx = waitingIdxRef.current;
         waitingIdxRef.current = null;
+        setMsgs(prev => prev.filter((_, i) => i !== idx));
       }
       const text = bubbleRef.current.trim();
       // Move o conteúdo da bolha streaming para msgs finalizadas
@@ -219,12 +216,14 @@ export default function Chat(){
     },
     onError: () => {
       if (waitingIdxRef.current !== null) {
-        setMsgs(prev => prev.filter((_, i) => i !== waitingIdxRef.current!));
+        const idx = waitingIdxRef.current;
         waitingIdxRef.current = null;
+        setMsgs(prev => prev.filter((_, i) => i !== idx));
       }
       bubbleRef.current = '';
       setStreamingText('');
       setThinking(false);
+      setModuleStarting(false);
       setBusy(false);
       setStreaming(false);
     },
@@ -233,20 +232,24 @@ export default function Chat(){
   // Fluxo concluído: sem próximo botão, agente já respondeu, não está ocupado
   const flowCompleted = flowStep > 0 && !flowNextButton && hasRealAgentResponse && !busy;
 
+  // Nome a exibir na mandala: filho selecionado ou usuário logado
+  const mandalaDisplayName = (childName || user?.full_name || '').trim() || 'Amigo';
+
   // Gera a mandala uma única vez quando o fluxo é concluído
   useEffect(() => {
     if (flowCompleted && !mandalaDataUrl) {
-      const first = (user?.full_name || '').trim().split(/\s+/)[0] || 'Amigo';
-      setMandalaDataUrl(generateMandala(first));
+      const mandalaMsg = msgs.find(
+        m => m.role === 'assistant' && /mandala merkaba/i.test(m.content)
+      );
+      setMandalaDataUrl(generateMandala(mandalaDisplayName, mandalaMsg?.content, moduleName ?? undefined));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flowCompleted]);
 
   const handleDownloadMandala = useCallback(() => {
     if (!mandalaDataUrl) return;
-    const first = (user?.full_name || '').trim().split(/\s+/)[0] || 'Amigo';
-    downloadMandala(mandalaDataUrl, first);
-  }, [mandalaDataUrl, user]);
+    downloadMandala(mandalaDataUrl, mandalaDisplayName);
+  }, [mandalaDataUrl, mandalaDisplayName]);
 
   const handleDownloadReport = useCallback(() => {
     if (!mandalaDataUrl) return;
@@ -257,19 +260,20 @@ export default function Chat(){
     };
     openPdfReport({
       moduleName: moduleName || 'Consulta',
-      userName: user?.full_name || '',
+      userName: mandalaDisplayName,
       userEmail: user?.email || undefined,
       birthDate: user?.birth_date
         ? new Date(user.birth_date + 'T12:00:00').toLocaleDateString('pt-BR')
         : undefined,
       consultationDate: fmtDate(sessionCreatedAt),
       messages: msgs,
+      flowStep,
       mandalaDataUrl,
-      logoUrl: siteSettings?.logo_url || undefined,
-      logoSvg: siteSettings?.logo_svg || undefined,
+      logoUrl: `${window.location.origin}/logo_amaracyta.png`,
+      logoSvg: undefined,
       siteTitle: siteSettings?.site_title || 'Jornada Akasha',
     });
-  }, [mandalaDataUrl, moduleName, user, sessionCreatedAt, msgs, siteSettings]);
+  }, [mandalaDataUrl, moduleName, user, sessionCreatedAt, msgs, flowStep, siteSettings]);
 
   // Envio (Enter / botão)
   const send = useCallback(async () => {
@@ -377,24 +381,56 @@ export default function Chat(){
 
   // Avança para o próximo passo do fluxo do módulo
   const handleFlowAdvance = useCallback(async () => {
-    if (!cid || busy) return;
+    if (!cid || busy || !flowNextButton) return;
+    // Bubble do agente (a pergunta) + bubble do usuário (a resposta configurada, ou o próprio texto do botão)
+    const userBubble = flowNextResponse?.trim() || flowNextButton;
+    setMsgs(prev => [
+      ...prev,
+      { role: 'assistant', content: flowNextButton },
+      { role: 'user',      content: userBubble },
+    ]);
+    setFlowNextButton(null);
+    setFlowNextResponse(null);
     setBusy(true);
     setThinking(true);
     try {
       const result = await advanceFlow(cid);
       setFlowNextButton(result.flow_next_button ?? null);
+      setFlowNextResponse(result.flow_next_response ?? null);
       setFlowStep(result.flow_step ?? 0);
       setStreaming(true);
     } catch {
       setThinking(false);
       setBusy(false);
     }
-  }, [cid, busy]);
+  }, [cid, busy, flowNextButton, flowNextResponse]);
 
   const onSubmit = useCallback((e: FormEvent) => {
     e.preventDefault();
     if (!busy) void send();
   }, [busy, send]);
+
+  // Estado vazio — nenhuma sessão ativa
+  if (!cid) {
+    return (
+      <section className="chat-area chat-area--empty">
+        <div className="chat-empty-state">
+          <div className="chat-empty-symbol">✦</div>
+          <h2 className="chat-empty-title">
+            {siteSettings?.site_title || 'Bem-vindo ao Portal'}
+          </h2>
+          <p className="chat-empty-body">
+            Aqui começa a sua jornada. Cada conexão é uma porta para um novo
+            nível de consciência e autoconhecimento.
+          </p>
+          <p className="chat-empty-hint">
+            Clique em <strong>+ Nova conexão</strong> na barra lateral para
+            escolher um módulo e iniciar sua experiência.
+          </p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="chat-area">
@@ -415,7 +451,7 @@ export default function Chat(){
         {/* Bolha "Pensando...": aparece entre o envio e o primeiro token */}
         {thinking && !streamingText && (
           <li className="message assistant">
-            <div className="bubble thinking">Acessando dados quânticos </div>
+            <div className="bubble thinking">Acessando portais quânticos </div>
           </li>
         )}
 
@@ -455,7 +491,7 @@ export default function Chat(){
         </div>
       )}
 
-      {moduleType !== 'fixed' && <footer className="composer-wrap" ref={wrapRef}>
+      {cid && moduleType !== 'fixed' && <footer className="composer-wrap" ref={wrapRef}>
         <form className="composer" onSubmit={onSubmit}>
           {showSuggestion && (
             <div className="composer-suggestions">

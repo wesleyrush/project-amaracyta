@@ -20,6 +20,7 @@ export interface SessionListItem {
   updated_at?: string | null;
   preview?: string | null;
   coins_consumed?: { gold: number; silver: number; bronze: number } | null;
+  flow_step?: number;
 }
 
 export interface Session {
@@ -32,10 +33,12 @@ export interface Session {
   module_slug?: string | null;
   module_type?: 'free' | 'fixed';
   module_use_opening_prompt?: boolean;
+  module_show_opening_prompt?: boolean;
   module_opening_prompt?: string | null;
   module_welcome_message?: string | null;
   flow_step?: number;
   flow_next_button?: string | null;
+  flow_next_response?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
   messages: Message[];

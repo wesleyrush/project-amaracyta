@@ -70,16 +70,16 @@ const IconSettings = () => (
 const NAV = [
   { label: 'Home', icon: <IconHome />, path: '/' },
   {
-    label: 'Agente', icon: <IconBot />, resource: 'agente', children: [
-      { label: 'Incluir Módulo', path: '/modulos/novo' },
-      { label: 'Listar Módulos', path: '/modulos' },
+    label: 'Módulos', icon: <IconBot />, resource: 'agente', children: [
+      { label: 'Incluir Módulo',    path: '/modulos/novo',     perm: { resource: 'agente', action: 'insert' } },
+      { label: 'Listar Módulos',    path: '/modulos' },
       { label: 'Pacotes de Módulos', path: '/modulos/pacotes' },
     ],
   },
   {
     label: 'Baús de Moedas', icon: <IconBox />, resource: 'cobranca', children: [
-      { label: 'Listar Baús', path: '/cobranca/baus' },
-      { label: 'Proporção Cobrança', path: '/cobranca/proporcoes' },
+      { label: 'Listar Baús',         path: '/cobranca/baus' },
+      { label: 'Proporção Cobrança',  path: '/cobranca/proporcoes', perm: { resource: 'cobranca', action: 'update' } },
     ],
   },
   {
@@ -88,17 +88,22 @@ const NAV = [
     ],
   },
   {
-    label: 'Pedidos', icon: <IconClipboard />, resource: 'cobranca', children: [
-      { label: 'Listar Pedidos', path: '/cobranca/pedidos' },
+    label: 'Pedidos', icon: <IconClipboard />, resource: 'pedidos', children: [
+      { label: 'Pedidos de Baús',    path: '/cobranca/pedidos' },
+      { label: 'Pedidos de Módulos', path: '/cobranca/pedidos-modulos' },
     ],
   },
   {
     label: 'Usuários', icon: <IconShield />, resource: 'usuarios', children: [
-      { label: 'Incluir Usuário', path: '/usuarios/novo' },
+      { label: 'Incluir Usuário', path: '/usuarios/novo', perm: { resource: 'usuarios', action: 'insert' } },
       { label: 'Listar Usuários', path: '/usuarios' },
     ],
   },
-  { label: 'Configurações', icon: <IconSettings />, path: '/configuracoes' },
+  {
+    label: 'Configurações', icon: <IconSettings />, resource: 'configuracoes', children: [
+      { label: 'Configurações do Agente', path: '/configuracoes' },
+    ],
+  },
 ];
 
 interface Props {
@@ -107,7 +112,7 @@ interface Props {
 }
 
 export default function Sidebar({ collapsed, onToggle }: Props) {
-  const { hasResource } = useAuth();
+  const { hasResource, hasPerm } = useAuth();
   const [open, setOpen] = useState<string[]>([]);
 
   const toggle = (label: string) =>
@@ -150,15 +155,17 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
               </button>
               {open.includes(item.label) && !collapsed && (
                 <div className="nav-children">
-                  {item.children!.map(child => (
-                    <NavLink
-                      key={child.path}
-                      to={child.path}
-                      className={({ isActive }) => `nav-child${isActive ? ' active' : ''}`}
-                    >
-                      {child.label}
-                    </NavLink>
-                  ))}
+                  {item.children!
+                    .filter(child => !(child as any).perm || hasPerm((child as any).perm.resource, (child as any).perm.action))
+                    .map(child => (
+                      <NavLink
+                        key={child.path}
+                        to={child.path}
+                        className={({ isActive }) => `nav-child${isActive ? ' active' : ''}`}
+                      >
+                        {child.label}
+                      </NavLink>
+                    ))}
                 </div>
               )}
             </div>

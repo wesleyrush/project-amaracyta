@@ -14,6 +14,7 @@ import ChestList              from './pages/cobranca/ChestList';
 import ChestForm              from './pages/cobranca/ChestForm';
 import CoinProportionSettings from './pages/cobranca/CoinProportionSettings';
 import CoinOrderList          from './pages/cobranca/CoinOrderList';
+import ModuleOrderList        from './pages/cobranca/ModuleOrderList';
 import SiteSettingsPage       from './pages/SiteSettingsPage';
 import './styles/admin.css';
 
@@ -43,6 +44,7 @@ export default function App() {
           <Route path="/cobranca/baus/novo" element={<ProtectedRoute><ChestForm /></ProtectedRoute>} />
           <Route path="/cobranca/baus/:id/editar" element={<ProtectedRoute><ChestForm /></ProtectedRoute>} />
           <Route path="/cobranca/pedidos" element={<ProtectedRoute><CoinOrderList /></ProtectedRoute>} />
+          <Route path="/cobranca/pedidos-modulos" element={<ProtectedRoute><ModuleOrderList /></ProtectedRoute>} />
           <Route path="/cobranca/proporcoes" element={<ProtectedRoute><CoinProportionSettings /></ProtectedRoute>} />
 
           <Route path="/configuracoes" element={<ProtectedRoute><SiteSettingsPage /></ProtectedRoute>} />

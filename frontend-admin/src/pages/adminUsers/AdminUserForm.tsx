@@ -5,11 +5,13 @@ import { createAdminUser, getAdminUser, updateAdminUser } from '../../api/adminU
 import type { Permission } from '../../types';
 import { swal } from '../../utils/swal';
 
-const RESOURCES: Array<{ key: 'agente' | 'clientes' | 'usuarios' | 'cobranca'; label: string }> = [
-  { key: 'agente',    label: 'Agente (Módulos)' },
-  { key: 'clientes',  label: 'Clientes' },
-  { key: 'usuarios',  label: 'Usuários Admin' },
-  { key: 'cobranca',  label: 'Cobrança' },
+const RESOURCES: Array<{ key: 'agente' | 'clientes' | 'usuarios' | 'cobranca' | 'pedidos' | 'configuracoes'; label: string }> = [
+  { key: 'agente',         label: 'Módulos' },
+  { key: 'cobranca',       label: 'Baús de Moedas' },
+  { key: 'pedidos',        label: 'Pedidos' },
+  { key: 'clientes',       label: 'Clientes' },
+  { key: 'usuarios',       label: 'Usuários Admin' },
+  { key: 'configuracoes',  label: 'Configurações do Agente' },
 ];
 
 interface PermState { can_insert: boolean; can_update: boolean; can_delete: boolean; }

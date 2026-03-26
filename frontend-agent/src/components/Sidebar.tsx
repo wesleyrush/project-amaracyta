@@ -1,8 +1,9 @@
 // src/components/Sidebar.tsx
 import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { listSessions, patchTitle, deleteSession } from '../api/sessions';
+import { listSessions, deleteSession } from '../api/sessions';
 import { swal } from '../utils/swal';
+
 import type { SessionListItem } from '../types';
 
 const SIDEBAR_LIMIT = 6;
@@ -43,15 +44,10 @@ function CoinsConsumed({ coins }: { coins?: SessionListItem['coins_consumed'] })
 }
 
 export default function Sidebar({ onToggle }: { onToggle: () => void }) {
-  const { cid, setCid, sessions, setSessions, setShowModulePicker } = useApp();
+  const { cid, setCid, sessions, setSessions, setShowModulePicker, user } = useApp();
 
-  const [openMenu, setOpenMenu]     = useState<string | null>(null);
-  const [menuPos,  setMenuPos]      = useState<{ top: number; right: number }>({ top: 0, right: 0 });
-  const [editingId,   setEditingId]   = useState<string | null>(null);
-  const [draftTitle,  setDraftTitle]  = useState<string>('');
-  const [showAll,     setShowAll]     = useState(false);
-
-  const editRef   = useRef<HTMLInputElement | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDialogElement | null>(null);
 
   // Recarrega sessões quando cid muda
@@ -62,26 +58,6 @@ export default function Sidebar({ onToggle }: { onToggle: () => void }) {
     })();
   }, [cid, setSessions]);
 
-  // Foca input de edição inline
-  useEffect(() => {
-    if (editingId && editRef.current) {
-      editRef.current.focus();
-      editRef.current.select();
-    }
-  }, [editingId]);
-
-  // Fecha dropdown fixo ao clicar fora ou rolar
-  useEffect(() => {
-    if (!openMenu) return;
-    const close = () => setOpenMenu(null);
-    document.addEventListener('click', close);
-    window.addEventListener('scroll', close, true);
-    return () => {
-      document.removeEventListener('click', close);
-      window.removeEventListener('scroll', close, true);
-    };
-  }, [openMenu]);
-
   // Abre / fecha dialog "Ver todas"
   useEffect(() => {
     if (showAll) dialogRef.current?.showModal();
@@ -90,60 +66,30 @@ export default function Sidebar({ onToggle }: { onToggle: () => void }) {
 
   function newConversation() { setShowModulePicker(true); }
 
-  function handleMenuToggle(e: React.MouseEvent<HTMLButtonElement>, id: string) {
-    e.stopPropagation();
-    if (openMenu === id) { setOpenMenu(null); return; }
-    const rect = e.currentTarget.getBoundingClientRect();
-    setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
-    setOpenMenu(id);
-  }
-
-  function startInlineEdit(id: string, currentTitle: string) {
-    setOpenMenu(null);
-    setEditingId(id);
-    setDraftTitle((currentTitle || '').trim());
-  }
-
-  function cancelInlineEdit() {
-    setEditingId(null);
-    setDraftTitle('');
-  }
-
-  async function commitInlineEdit() {
-    if (!editingId) return;
-    const newTitle = (draftTitle || '').trim();
-    if (!newTitle) { cancelInlineEdit(); return; }
+  async function handleDelete(id: string) {
+    const confirmed = await swal.confirm(
+      'Excluir conexão',
+      'Esta conexão será excluída permanentemente. Deseja continuar?',
+      'Sim, excluir'
+    );
+    if (!confirmed) return;
+    setDeletingId(id);
     try {
-      await patchTitle(editingId, newTitle);
-      localStorage.removeItem(`FORCE_NOVA_CONVERSA__${editingId}`);
-      const list = await listSessions();
-      setSessions(normalizeTitles(list.items));
-      if (editingId === cid) {
-        const el = document.getElementById('convTitle');
-        if (el) el.textContent = newTitle;
+      await deleteSession(id);
+      const updated = sessions.filter(s => s.id !== id);
+      setSessions(updated);
+      if (id === cid) {
+        if (updated.length > 0) {
+          setCid(updated[0].id);
+        } else {
+          setShowModulePicker(true);
+        }
       }
+    } catch {
+      // swal.ask usado apenas para confirmação; erros exibidos via alert simples
+      alert('Não foi possível excluir a conexão.');
     } finally {
-      cancelInlineEdit();
-    }
-  }
-
-  function onEditKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter')  { e.preventDefault(); commitInlineEdit(); }
-    if (e.key === 'Escape') { e.preventDefault(); cancelInlineEdit(); }
-  }
-
-  async function onDelete(id: string) {
-    setOpenMenu(null);
-    const ok = await swal.confirm('Excluir conversa?', 'Esta ação não pode ser desfeita.');
-    if (!ok) return;
-    await deleteSession(id);
-    const list = await listSessions();
-    setSessions(list.items || []);
-    if (!list.items?.length) {
-      setCid('');
-      setShowModulePicker(true);
-    } else {
-      setCid(list.items[0].id);
+      setDeletingId(null);
     }
   }
 
@@ -157,7 +103,7 @@ export default function Sidebar({ onToggle }: { onToggle: () => void }) {
         <header className="side-header">
           <div className="side-header-left">
             <div className="brand" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <strong style={{ display: 'block', margin: '12px 0px 8px 80px', fontSize: 20 }}>Suas conexões</strong>
+              <strong style={{ display: 'block', margin: '0 0 0 56px', fontSize: 16 }}>Suas conexões</strong>
             </div>
           </div>
           <div className="side-header-actions">
@@ -175,67 +121,42 @@ export default function Sidebar({ onToggle }: { onToggle: () => void }) {
           <nav className="conv-list">
             <ul id="conversations">
               {visible.map(it => {
-                const isActive  = it.id === cid;
-                const isEditing = editingId === it.id;
+                const isActive = it.id === cid;
+                const personName = it.child_id
+                  ? (it.child_name || 'Filho(a)')
+                  : (user?.full_name || 'Eu');
                 return (
-                  <li
-                    key={it.id}
-                    className={`conv-item ${isActive ? 'active' : ''} ${isEditing ? 'editing' : ''}`}
-                  >
+                  <li key={it.id} className={`conv-item ${isActive ? 'active' : ''}`}>
                     <a
                       href={`?cid=${encodeURIComponent(it.id)}`}
                       className="conv-link"
                       data-cid={it.id}
                       onClick={e => {
-                        if (isEditing) { e.preventDefault(); return; }
                         e.preventDefault();
                         setCid(it.id);
-                        setOpenMenu(null);
                       }}
-                      onDoubleClick={e => {
-                        e.preventDefault();
-                        startInlineEdit(it.id, it.title || it.id);
-                      }}
-                      title={it.title || it.id}
+                      title={personName}
                     >
-                      {isEditing ? (
-                        <input
-                          ref={editRef}
-                          type="text"
-                          className="conv-title-edit"
-                          value={draftTitle}
-                          onChange={e => setDraftTitle(e.target.value)}
-                          onKeyDown={onEditKeyDown}
-                          onBlur={commitInlineEdit}
-                          placeholder="Novo título da conversa"
-                          aria-label="Editar título da conversa"
-                        />
-                      ) : (
-                        <div className="conv-title">
-                          <div className="conv-title-top">
-                            {it.module_name && (
-                              <span className="conv-module-badge">{it.module_name}</span>
-                            )}
-                            {it.updated_at && (
-                              <span className="conv-date">{fmtShort(it.updated_at)}</span>
-                            )}
-                          </div>
-                          <span className="conv-person-badge">
-                            {it.child_id ? `👶 ${it.child_name}` : '👤 Eu'}
-                          </span>
-                          <span className="conv-title-text">{it.title || it.id}</span>
-                        </div>
-                      )}
+                      <div className="conv-title">
+                        <span className="conv-person-name">
+                          👤 {personName}
+                        </span>
+                        <span className="conv-module-date">
+                          Módulo: {it.module_name || '—'}
+                          {it.updated_at ? ` · ${fmtShort(it.updated_at)}` : ''}
+                        </span>
+                      </div>
                     </a>
-
-                    <div className="conv-actions">
+                    {!(it.flow_step && it.flow_step > 0) && (
                       <button
-                        className="conv-more"
-                        type="button"
-                        title="Ações"
-                        onClick={e => handleMenuToggle(e, it.id)}
-                      >⋯</button>
-                    </div>
+                        className="conv-delete-btn"
+                        title="Excluir conexão"
+                        disabled={deletingId === it.id}
+                        onClick={e => { e.stopPropagation(); void handleDelete(it.id); }}
+                      >
+                        ✕
+                      </button>
+                    )}
                   </li>
                 );
               })}
@@ -258,26 +179,6 @@ export default function Sidebar({ onToggle }: { onToggle: () => void }) {
           <label className="api-url" style={{ fontSize: 11, textAlign: 'center' }}>2026© Todos os direitos reservados</label>
         </footer>
       </aside>
-
-      {/* Dropdown fixo — renderizado fora do sidebar para não ser cortado pelo overflow */}
-      {openMenu && (() => {
-        const it = sessions.find(s => s.id === openMenu);
-        if (!it) return null;
-        return (
-          <div
-            className="conv-menu"
-            style={{ position: 'fixed', top: menuPos.top, right: menuPos.right, zIndex: 2000, display: 'grid' }}
-            onClick={e => e.stopPropagation()}
-          >
-            <button className="menu-item rename" type="button" onClick={() => startInlineEdit(it.id, it.title || it.id)}>
-              <span>✎</span> <span>Renomear</span>
-            </button>
-            <button className="menu-item delete" type="button" onClick={() => onDelete(it.id)}>
-              <span>🗑</span> <span>Excluir</span>
-            </button>
-          </div>
-        );
-      })()}
 
       {/* Dialog "Ver todas as conexões" */}
       <dialog ref={dialogRef} className="all-sessions-dialog" onClose={() => setShowAll(false)}>
@@ -309,8 +210,8 @@ export default function Sidebar({ onToggle }: { onToggle: () => void }) {
                     </td>
                     <td className="asd-person">
                       {it.child_id
-                        ? <span className="conv-person-badge child">👶 {it.child_name}</span>
-                        : <span className="conv-person-badge self">👤 Eu</span>}
+                        ? <span className="conv-person-badge child">👤 {it.child_name}</span>
+                        : <span className="conv-person-badge self">👤 {user?.full_name || 'Eu'}</span>}
                     </td>
                     <td className="asd-title">{it.title || it.id}</td>
                     <td className="asd-coins"><CoinsConsumed coins={it.coins_consumed} /></td>

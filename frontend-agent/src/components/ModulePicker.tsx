@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { listModules, listUserModules } from '../api/modules';
 import { listChildren } from '../api/children';
+import { listSessions } from '../api/sessions';
+import { swal } from '../utils/swal';
 import type { Module, User, Child } from '../types';
 
 function isProfileComplete(u: User | null): boolean {
@@ -55,20 +57,34 @@ export default function ModulePicker({ onSelect, onCancel, showCancel = false }:
     setLoading(true);
     setAllUsed(false);
 
-    Promise.all([listModules(), listUserModules()])
-      .then(([modsRes, userModsRes]) => {
-        const allModules     = modsRes.items.filter(m => m.is_active !== false);
-        const totalAvailable = userModsRes.total_available ?? 0;
-        const totalQuantity  = userModsRes.total_quantity ?? 0;
+    Promise.all([listModules(), listUserModules(), listSessions()])
+      .then(([modsRes, userModsRes, sessionsRes]) => {
+        const allModules    = modsRes.items.filter(m => m.is_active !== false);
+        const totalQuantity = userModsRes.total_quantity ?? 0;
+
+        // Módulos com saldo disponível (vinculado ao módulo adquirido)
+        const availableByModule = new Map<number, number>(
+          userModsRes.items.map(um => [um.module_id, um.available_qty])
+        );
+
+        // Collect all module IDs already started by this person
+        const personSessions = sessionsRes.items.filter(s =>
+          person.type === 'user' ? !s.child_id : s.child_id === person.child.id
+        );
+        const usedByPerson = new Set<number>(
+          personSessions.filter(s => s.module_id != null && (s.flow_step ?? 0) > 0).map(s => s.module_id!)
+        );
 
         // Free modules: always available
         const freeModules = allModules.filter(
           m => m.module_type === 'free' || !m.module_type
         );
-        // Fixed modules: show ALL if user has slots in the pool (ignores which module was purchased)
-        const fixedModules = totalAvailable > 0
-          ? allModules.filter(m => m.module_type === 'fixed')
-          : [];
+        // Fixed modules: apenas os que o usuário adquiriu E ainda tem saldo E não foi usado por esta pessoa
+        const fixedModules = allModules.filter(
+          m => m.module_type === 'fixed'
+            && (availableByModule.get(m.id) ?? 0) > 0
+            && !usedByPerson.has(m.id)
+        );
 
         setAllUsed(totalQuantity > 0 && fixedModules.length === 0 && freeModules.length === 0);
         setHasFree(freeModules.length > 0);
@@ -86,8 +102,17 @@ export default function ModulePicker({ onSelect, onCancel, showCancel = false }:
     setStep('module');
   }
 
-  function handleSelectModule(m: Module) {
+  async function handleSelectModule(m: Module) {
     const childId = person?.type === 'child' ? person.child.id : null;
+    // Fixed modules require confirmation — each activation is unique per person
+    if (m.module_type === 'fixed') {
+      const confirmed = await swal.ask(
+        `Confirmar módulo: ${m.name}`,
+        `Esta escolha não poderá ser alterada para ${personLabel}. Deseja continuar?`,
+        'Sim, confirmar'
+      );
+      if (!confirmed) return;
+    }
     onSelect(m, childId);
   }
 
@@ -128,7 +153,7 @@ export default function ModulePicker({ onSelect, onCancel, showCancel = false }:
               {children.map(child => (
                 <button key={child.id} className="person-card"
                   onClick={() => handleSelectPerson({ type: 'child', child })}>
-                  <span className="person-card-avatar">👶</span>
+                  <span className="person-card-avatar">👤</span>
                   <span className="person-card-name">{child.full_name}</span>
                   {child.initiatic_name && (
                     <span className="person-card-label">{child.initiatic_name}</span>
@@ -178,11 +203,11 @@ export default function ModulePicker({ onSelect, onCancel, showCancel = false }:
                   <>
                     <p className="module-picker-empty-msg">
                       Você ainda não possui módulos disponíveis.<br />
-                      Adquira módulos na loja para iniciar uma conversa.
+                      Ative módulos para iniciar uma conexão.
                     </p>
                     <button className="module-picker-store-btn"
                       onClick={() => { onCancel?.(); navigate('/store'); }}>
-                      🛒 Ir à Loja de Módulos
+                      📦 Ativar Módulos
                     </button>
                   </>
                 )}
@@ -193,8 +218,9 @@ export default function ModulePicker({ onSelect, onCancel, showCancel = false }:
                   {modules.map(m => (
                     <button key={m.id} className="module-card" onClick={() => handleSelectModule(m)}>
                       {m.image_svg && (
-                        <span className="module-card-img"
-                          dangerouslySetInnerHTML={{ __html: m.image_svg }} />
+                        (m.image_svg.startsWith('http') || m.image_svg.startsWith('/'))
+                          ? <img className="module-card-img" src={m.image_svg} alt={m.name} />
+                          : <span className="module-card-img" dangerouslySetInnerHTML={{ __html: m.image_svg }} />
                       )}
                       <strong className="module-card-name">{m.name}</strong>
                       {m.description && (

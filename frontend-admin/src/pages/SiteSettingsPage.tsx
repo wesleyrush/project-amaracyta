@@ -1,5 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
+import { Navigate } from 'react-router-dom';
 import Layout from '../components/Layout';
+import { useAuth } from '../context/AuthContext';
 import Swal from 'sweetalert2';
 
 interface Settings {
@@ -17,6 +19,7 @@ async function apiFetch(path: string, opts?: RequestInit) {
 }
 
 export default function SiteSettingsPage() {
+  const { hasResource } = useAuth();
   const [form, setForm] = useState<Settings>({ site_title: '', logo_url: '', logo_svg: '' });
   const [loading, setLoading]   = useState(true);
   const [saving,  setSaving]    = useState(false);
@@ -24,6 +27,7 @@ export default function SiteSettingsPage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    if (!hasResource('configuracoes')) return;
     apiFetch('/settings')
       .then(s => setForm({
         site_title: s.site_title || '',
@@ -33,6 +37,8 @@ export default function SiteSettingsPage() {
       .catch(() => Swal.fire('Erro', 'Não foi possível carregar as configurações.', 'error'))
       .finally(() => setLoading(false));
   }, []);
+
+  if (!hasResource('configuracoes')) return <Navigate to="/" replace />;
 
   async function handleSave() {
     setSaving(true);
@@ -77,12 +83,12 @@ export default function SiteSettingsPage() {
     setForm(f => ({ ...f, logo_url: '', logo_svg: '' }));
   }
 
-  if (loading) return <Layout><div className="page-loading">Carregando…</div></Layout>;
+  if (loading) return <Layout title="Configurações do Agente"><div className="page-loading">Carregando…</div></Layout>;
 
   const hasLogo = form.logo_url || form.logo_svg;
 
   return (
-    <Layout>
+    <Layout title="Configurações do Agente">
       <div className="page-header">
         <h1>Configurações do Agente</h1>
         <p className="page-subtitle">Logo e título exibidos no front-end do agente</p>

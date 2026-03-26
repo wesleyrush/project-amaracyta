@@ -1,5 +1,5 @@
 export interface Permission {
-  resource: 'agente' | 'clientes' | 'usuarios' | 'cobranca';
+  resource: 'agente' | 'clientes' | 'usuarios' | 'cobranca' | 'pedidos' | 'configuracoes';
   can_insert: number;
   can_update: number;
   can_delete: number;
@@ -38,11 +38,26 @@ export interface CoinOrder {
   created_at: string;
 }
 
+export interface ModuleOrder {
+  id: number;
+  user_id: number;
+  full_name: string | null;
+  email: string | null;
+  module_ids: string;
+  quantity: number;
+  price_brl: number;
+  payment_method: string;
+  payment_label: string;
+  status: OrderStatus;
+  status_label: string;
+  created_at: string;
+}
+
 export interface CoinTransaction {
   id: number;
   user_id: number;
   amount: number;
-  type: 'admin_credit' | 'message_debit';
+  type: 'admin_credit' | 'message_debit' | 'chest_purchase' | 'module_purchase';
   coin_type: CoinType | null;
   description: string | null;
   created_at: string;
@@ -73,6 +88,7 @@ export interface Module {
   few_shot: string | null;
   welcome_message: string | null;
   use_opening_prompt: boolean;
+  show_opening_prompt: boolean;
   is_active: number;
   module_type: 'free' | 'fixed';
   price_brl: number | null;
@@ -85,7 +101,9 @@ export interface ModuleFlowStep {
   step_order: number;
   label: string | null;
   button_label: string | null;
+  button_response: string | null;
   prompt_template: string | null;
+  step_system_prompt: string | null;
   include_user_profile: boolean;
   is_hidden: boolean;
   created_at: string | null;

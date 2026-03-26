@@ -54,16 +54,19 @@ export default function Register() {
   }
 
   return (
-    <>
-      <p style={{ textAlign: 'center', margin: '20px 0 8px 0' }}>
-        <AkashaLogo size={128} />
-      </p>
-      <h1 style={{ textAlign: 'center', margin: '0 0 16px 0' }}>Amaracytã</h1>
+    <div className="auth-page">
+      <div className="auth-brand">
+        <AkashaLogo size={96} />
+        <h1 className="auth-brand-name">Amaracytã</h1>
+      </div>
 
-      <div className="auth-card">
-        <h2 style={{ textAlign: 'center', margin: '0 0 20px 0' }}>Criar conta</h2>
+      <div className="auth-card auth-card--wide">
+        <h2 className="auth-card-title">Criar conta</h2>
 
         <form onSubmit={onSubmit}>
+
+          {/* ── Identificação ── */}
+          <p className="auth-section-label">Identificação</p>
 
           <div className="auth-field">
             <label className="auth-label">
@@ -81,23 +84,28 @@ export default function Register() {
                    value={iniciaticName} onChange={e => setIniciaticName(e.target.value)} />
           </div>
 
+          {/* ── Nascimento ── */}
+          <p className="auth-section-label">Dados de Nascimento</p>
+
           <div className="auth-field-row">
             <div className="auth-field">
               <label className="auth-label">
-                Data de Nascimento <span className="auth-req">*</span> <span className="auth-hint">(dd/mm/aaaa)</span>
+                Data <span className="auth-req">*</span>
+                <span className="auth-hint"> dd/mm/aaaa</span>
               </label>
               <input type="date" required value={birth} onChange={e => setBirth(e.target.value)} />
             </div>
             <div className="auth-field">
               <label className="auth-label">
-                Hora de Nascimento <span className="auth-req">*</span> <span className="auth-hint">(hh:mm)</span>
+                Hora <span className="auth-req">*</span>
+                <span className="auth-hint"> hh:mm</span>
               </label>
               <input type="time" required value={birthTime} onChange={e => setBirthTime(e.target.value)} />
             </div>
           </div>
 
           <div className="auth-field">
-            <label className="auth-label">País de Nascimento <span className="auth-req">*</span></label>
+            <label className="auth-label">País <span className="auth-req">*</span></label>
             <input type="text" placeholder="Ex.: Brasil, Portugal, Argentina…" required
                    value={birthCountry} onChange={e => handleCountryChange(e.target.value)} />
           </div>
@@ -122,10 +130,11 @@ export default function Register() {
             </div>
           </div>
 
+          {/* ── Acesso ── */}
+          <p className="auth-section-label">Dados de Acesso</p>
+
           <div className="auth-field">
-            <label className="auth-label">
-              E-mail <span className="auth-req">*</span>
-            </label>
+            <label className="auth-label">E-mail <span className="auth-req">*</span></label>
             <input type="email" placeholder="seu@email.com" required
                    value={email} onChange={e => setEmail(e.target.value)} />
           </div>
@@ -133,20 +142,21 @@ export default function Register() {
           <div className="auth-field">
             <label className="auth-label">
               Senha <span className="auth-req">*</span>
-              <span className="auth-hint"> (mínimo 8 caracteres)</span>
+              <span className="auth-hint"> mínimo 8 caracteres</span>
             </label>
             <input type="password" placeholder="••••••••" minLength={8} required
                    value={password} onChange={e => setPwd(e.target.value)} />
           </div>
 
-          <button className="btn-primary" type="submit" disabled={loading}>
+          {err && <p className="auth-err" role="alert">{err}</p>}
+
+          <button className="btn-primary auth-submit" type="submit" disabled={loading}>
             {loading ? 'Cadastrando…' : 'Cadastrar'}
           </button>
         </form>
 
-        <p className="muted">Já tem conta? <a href="/login">Entrar</a></p>
-        {err && <p className="muted auth-err" role="alert">{err}</p>}
+        <p className="auth-footer-link">Já tem conta? <a href="/login">Entrar</a></p>
       </div>
-    </>
+    </div>
   );
 }

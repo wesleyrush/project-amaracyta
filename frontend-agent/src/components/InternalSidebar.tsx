@@ -31,18 +31,18 @@ export default function InternalSidebar({ onToggle }: Props) {
         </NavLink>
 
         <NavLink to="/children" className="internal-nav-item">
-          <span className="internal-nav-icon">👶</span>
+          <span className="internal-nav-icon">👥</span>
           <span className="internal-nav-label">Cadastro de Filhos</span>
         </NavLink>
 
         <NavLink to="/store" className="internal-nav-item">
-          <span className="internal-nav-icon">🛒</span>
-          <span className="internal-nav-label">Comprar Créditos</span>
+          <span className="internal-nav-icon">📦</span>
+          <span className="internal-nav-label">Ativar Módulos</span>
         </NavLink>
 
         <NavLink to="/history" className="internal-nav-item">
           <span className="internal-nav-icon">📋</span>
-          <span className="internal-nav-label">Histórico de consumo</span>
+          <span className="internal-nav-label">Histórico de ações</span>
         </NavLink>
 
         <NavLink to="/profile" className="internal-nav-item" end>

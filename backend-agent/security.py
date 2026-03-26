@@ -83,7 +83,6 @@ def decode_token(token: str) -> TokenData:
 
 def cookie_params():
     return dict(
-        # domain=None,  # <--- removido temporariamente
         path=COOKIE_PATH or "/",
         secure=bool(COOKIE_SECURE),
         samesite=_samesite,

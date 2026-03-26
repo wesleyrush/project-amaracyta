@@ -72,7 +72,7 @@ export default function ChestList() {
         <div className="card-body">
           <DataTable
             columns={columns}
-            data={data as Record<string, unknown>[]}
+            data={data as unknown as Record<string, unknown>[]}
             loading={loading}
             actions={row => {
               const chest = row as unknown as CoinChest;

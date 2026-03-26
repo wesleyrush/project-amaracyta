@@ -107,7 +107,7 @@ export default function CheckoutPage() {
           ← Voltar à loja
         </button>
 
-        <h1 className="checkout-title">Finalizar Compra</h1>
+        <h1 className="checkout-title">Finalizar Ativação</h1>
 
         <div className="checkout-layout">
           {/* Resumo do pedido */}

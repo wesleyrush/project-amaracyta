@@ -35,7 +35,7 @@ export default function PurchaseSuccessScreen() {
               Seus módulos foram adquiridos com sucesso.
             </Text>
             <View style={styles.summaryCard}>
-              <Text style={styles.summaryTitle}>Módulos adquiridos</Text>
+              <Text style={styles.summaryTitle}>Módulos ativados</Text>
               {modules.map(m => {
                 const qty = moduleQuantities[m.id] ?? 0;
                 return (

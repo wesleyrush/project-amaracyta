@@ -58,6 +58,41 @@ router.delete(
   }
 );
 
+const MODULES_DIR = path.resolve(__dirname, '../../uploads/modules');
+if (!fs.existsSync(MODULES_DIR)) fs.mkdirSync(MODULES_DIR, { recursive: true });
+
+const storageModule = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, MODULES_DIR),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `module-${Date.now()}${ext}`);
+  },
+});
+const uploadModule = multer({
+  storage: storageModule,
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['.png', '.jpg', '.jpeg', '.webp', '.svg', '.gif'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowed.includes(ext)) return cb(null, true);
+    cb(new Error('Formato não permitido. Use PNG, JPG, WebP, GIF ou SVG.'));
+  },
+});
+
+// POST /api/upload/module-image
+router.post(
+  '/module-image',
+  requireAuth,
+  requirePermission('agente', 'update'),
+  uploadModule.single('image'),
+  (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
+    const origin = `${req.protocol}://${req.get('host')}`;
+    const fileUrl = `${origin}/uploads/modules/${req.file.filename}`;
+    res.json({ url: fileUrl });
+  }
+);
+
 const LOGOS_DIR = path.resolve(__dirname, '../../uploads/logos');
 if (!fs.existsSync(LOGOS_DIR)) fs.mkdirSync(LOGOS_DIR, { recursive: true });
 

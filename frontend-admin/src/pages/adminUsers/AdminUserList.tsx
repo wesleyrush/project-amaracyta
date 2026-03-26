@@ -66,7 +66,7 @@ export default function AdminUserList() {
     },
     {
       key: 'permissions', label: 'Permissões', sortable: false,
-      render: row => <small className="perm-summary">{permSummary(row as AdminUserFull)}</small>,
+      render: row => <small className="perm-summary">{permSummary(row as unknown as AdminUserFull)}</small>,
     },
     {
       key: 'created_at', label: 'Criado em', sortable: true,
@@ -88,10 +88,10 @@ export default function AdminUserList() {
         <div className="card-body">
           <DataTable
             columns={columns}
-            data={data as Record<string, unknown>[]}
+            data={data as unknown as Record<string, unknown>[]}
             loading={loading}
             actions={row => {
-              const user = row as AdminUserFull;
+              const user = row as unknown as AdminUserFull;
               return (
                 <div className="action-btns">
                   {hasPerm('usuarios', 'update') && (

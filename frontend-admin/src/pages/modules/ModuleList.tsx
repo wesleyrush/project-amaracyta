@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import DataTable, { Column } from '../../components/DataTable';
-import { listModules, toggleModule, deleteModule } from '../../api/modules';
+import { listModules, toggleModule, deleteModule, getModule, listFlowSteps } from '../../api/modules';
 import { useAuth } from '../../context/AuthContext';
 import type { Module } from '../../types';
 import { swal } from '../../utils/swal';
@@ -10,7 +10,8 @@ import { swal } from '../../utils/swal';
 export default function ModuleList() {
   const [data, setData]     = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
-  const { hasPerm } = useAuth();
+  const { hasPerm, hasResource } = useAuth();
+  const canEditPrompts = hasResource('configuracoes');
   const navigate = useNavigate();
 
   const load = () => {
@@ -28,6 +29,24 @@ export default function ModuleList() {
     load();
   };
 
+  const handleClone = async (row: Module) => {
+    const ok = await swal.confirmAction(
+      'Duplicar módulo?',
+      `Será criada uma cópia de "${row.name}" com todos os passos do fluxo.`,
+      'Sim, duplicar'
+    );
+    if (!ok) return;
+    try {
+      const [module, flowSteps] = await Promise.all([
+        getModule(row.id),
+        listFlowSteps(row.id),
+      ]);
+      navigate('/modulos/novo', { state: { cloneFrom: module, flowSteps } });
+    } catch {
+      swal.error('Erro', 'Não foi possível carregar os dados do módulo.');
+    }
+  };
+
   const handleDelete = async (row: Module) => {
     const ok = await swal.confirm('Excluir módulo?', `"${row.name}" será excluído permanentemente.`);
     if (!ok) return;
@@ -42,6 +61,16 @@ export default function ModuleList() {
 
   const columns: Column<Record<string, unknown>>[] = [
     { key: 'id',    label: 'ID',    sortable: true },
+    {
+      key: 'image_svg', label: 'Imagem', sortable: false,
+      render: row => {
+        const img = row.image_svg as string | null;
+        if (!img) return <span style={{ color: '#d1d5db' }}>—</span>;
+        if (img.startsWith('http') || img.startsWith('/'))
+          return <img src={img} alt="" style={{ height: 36, width: 36, objectFit: 'contain' }} />;
+        return <span style={{ display: 'inline-block', height: 36, width: 36 }} dangerouslySetInnerHTML={{ __html: img }} />;
+      },
+    },
     { key: 'slug',  label: 'Slug',  sortable: true },
     { key: 'name',  label: 'Nome',  sortable: true },
     {
@@ -66,14 +95,14 @@ export default function ModuleList() {
         </span>
       ),
     },
-    {
+    ...(canEditPrompts ? [{
       key: 'use_opening_prompt', label: 'Opening Prompt', sortable: true,
-      render: row => (
+      render: (row: Record<string, unknown>) => (
         <span className={`badge ${row.use_opening_prompt ? 'badge-active' : 'badge-inactive'}`}>
           {row.use_opening_prompt ? 'Sim (IA)' : 'Não (welcome)'}
         </span>
       ),
-    },
+    } as Column<Record<string, unknown>>] : []),
     {
       key: 'is_active', label: 'Status', sortable: true,
       render: row => (
@@ -102,33 +131,44 @@ export default function ModuleList() {
         <div className="card-body">
           <DataTable
             columns={columns}
-            data={data as Record<string, unknown>[]}
+            data={data as unknown as Record<string, unknown>[]}
             loading={loading}
-            actions={row => (
+            actions={row => {
+              const m = row as unknown as Module;
+              return (
               <div className="action-btns">
                 {hasPerm('agente', 'update') && (
                   <button
                     className="btn-icon btn-edit"
                     title="Editar"
-                    onClick={() => navigate(`/modulos/${(row as Module).id}/editar`)}
+                    onClick={() => navigate(`/modulos/${m.id}/editar`)}
                   >✎</button>
+                )}
+                {hasPerm('agente', 'insert') && (
+                  <button
+                    className="btn-icon"
+                    title="Duplicar"
+                    style={{ color: '#7c3aed' }}
+                    onClick={() => handleClone(m)}
+                  >⧉</button>
                 )}
                 {hasPerm('agente', 'update') && (
                   <button
-                    className={`btn-icon ${(row as Module).is_active ? 'btn-deactivate' : 'btn-activate'}`}
-                    title={(row as Module).is_active ? 'Desativar' : 'Ativar'}
-                    onClick={() => handleToggle(row as Module)}
-                  >{(row as Module).is_active ? '⏸' : '▶'}</button>
+                    className={`btn-icon ${m.is_active ? 'btn-deactivate' : 'btn-activate'}`}
+                    title={m.is_active ? 'Desativar' : 'Ativar'}
+                    onClick={() => handleToggle(m)}
+                  >{m.is_active ? '⏸' : '▶'}</button>
                 )}
                 {hasPerm('agente', 'delete') && (
                   <button
                     className="btn-icon btn-delete"
                     title="Excluir"
-                    onClick={() => handleDelete(row as Module)}
+                    onClick={() => handleDelete(m)}
                   >🗑</button>
                 )}
               </div>
-            )}
+              );
+            }}
           />
         </div>
       </div>

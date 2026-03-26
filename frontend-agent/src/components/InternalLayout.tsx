@@ -45,7 +45,7 @@ export default function InternalLayout({ children }: { children: ReactNode }) {
       <div className="sidebar-backdrop" onClick={() => setOpenMobile(false)} />
       <InternalSidebar onToggle={handleToggle} />
       <main className="main">
-        <Topbar forceDefault />
+        <Topbar forceDefault sidebarCollapsed={isCollapsed} />
         <div className="internal-content">
           {children}
         </div>

@@ -196,7 +196,7 @@ export default function ChildrenPage() {
       <section className="profile-card">
         <div className="profile-card-head" style={{ justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-            <span className="profile-card-icon">👶</span>
+            <span className="profile-card-icon">👥</span>
             <div>
               <h2 className="profile-card-title">Cadastrar filho(a)</h2>
               <p className="profile-card-sub">Adicione e gerencie os filhos vinculados à sua conta</p>

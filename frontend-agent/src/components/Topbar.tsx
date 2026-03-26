@@ -16,9 +16,10 @@ function initialsFromName(name?: string | null) {
 
 interface TopbarProps {
   forceDefault?: boolean;
+  sidebarCollapsed?: boolean;
 }
 
-export default function Topbar({ forceDefault }: TopbarProps) {
+export default function Topbar({ forceDefault, sidebarCollapsed }: TopbarProps) {
   const navigate = useNavigate();
   const { user, balances, cid, sessions, userModules, siteSettings } = useApp();
   const currentSession = sessions.find(s => s.id === cid) ?? null;
@@ -46,19 +47,26 @@ export default function Topbar({ forceDefault }: TopbarProps) {
   const allZero = balances.gold === 0 && balances.silver === 0 && balances.bronze === 0;
   const totalAvailableModules = userModules.reduce((sum, m) => sum + m.available_qty, 0);
 
+  // Coin balance is only relevant when free-type modules exist.
+  // While moduleMap is still loading (empty), keep showing to avoid flash.
+  const hasFreeModules = Object.keys(moduleMap).length === 0
+    || Object.values(moduleMap).some(m => m.module_type === 'free' || !m.module_type);
+
   return (
     <>
-      <header className="topbar">
+      <header className="topbar" style={sidebarCollapsed ? { paddingLeft: 70 } : undefined}>
         <div className="topbar-title-area">
           {!forceDefault && currentSession?.module_id ? (() => {
             const mod = moduleMap[currentSession.module_id!];
             return (
               <>
                 {mod?.image_svg && (
-                  <span className="topbar-module-icon" dangerouslySetInnerHTML={{ __html: mod.image_svg }} />
+                  (mod.image_svg.startsWith('http') || mod.image_svg.startsWith('/'))
+                    ? <img className="topbar-module-icon" src={mod.image_svg} alt={mod.name} style={{ padding: '13px 0 5px 0', height: 36, objectFit: 'contain' }} />
+                    : <span className="topbar-module-icon" style={{padding:'13px 0 5px 0'}} dangerouslySetInnerHTML={{ __html: mod.image_svg }} />
                 )}
-                <span className="topbar-conv-title">
-                  {currentSession.module_name ?? currentSession.title}
+                <span className="topbar-conv-title"  style={{padding:'13px 0 5px 0'}}>
+                  Módulo: {currentSession.module_name ?? currentSession.title}
                 </span>
               </>
             );
@@ -76,8 +84,8 @@ export default function Topbar({ forceDefault }: TopbarProps) {
         </div>
 
         <div className="topbar-right">
-          {/* Saldo de moedas */}
-          <div className="coin-balance" title="Saldo de moedas">
+          {/* Saldo de moedas — oculto quando não há módulos gratuitos no sistema */}
+          {hasFreeModules && <div className="coin-balance" title="Saldo de moedas">
             <span className="coin-balance-label">Seu saldo atual:</span>
             {allZero ? (
               <button className="coin-buy-btn" onClick={() => navigate('/store')} title="Comprar moedas">
@@ -102,19 +110,29 @@ export default function Topbar({ forceDefault }: TopbarProps) {
                 )}
               </>
             )}
-          </div>
+          </div>}
 
           {/* Módulos disponíveis */}
           {userModules.length > 0 && (
-            <div className="module-balance" title="Módulos disponíveis para uso">
+            <div className="module-balance">
               <span className="module-balance-label">Módulos:</span>
               {totalAvailableModules > 0 ? (
                 <span className="module-balance-count available">
-                  📦 {totalAvailableModules} disponível{totalAvailableModules !== 1 ? 'is' : ''}
+                  📦 {totalAvailableModules}  {totalAvailableModules !== 1 ? 'disponíveis' : 'disponível'}
+                  <div className="module-balance-dropdown">
+                    {userModules.filter(um => um.available_qty > 0).map(um => (
+                      <div key={um.module_id} className="module-balance-row">
+                        <span className="module-balance-name">
+                          {moduleMap[um.module_id]?.name ?? `Módulo #${um.module_id}`}
+                        </span>
+                        <span className="module-balance-qty">{um.available_qty}x</span>
+                      </div>
+                    ))}
+                  </div>
                 </span>
               ) : (
-                <button className="coin-buy-btn" onClick={() => navigate('/store')} title="Comprar módulos">
-                  📦 Comprar módulos
+                <button className="coin-buy-btn" onClick={() => navigate('/store')} title="Ativar módulos">
+                  📦 Ativar Módulos
                 </button>
               )}
             </div>
@@ -141,11 +159,17 @@ export default function Topbar({ forceDefault }: TopbarProps) {
             <button onClick={() => { setMenuOpen(false); navigate('/profile'); }}>
               <span>⚙️</span> Perfil e Configurações
             </button>
+            <button onClick={() => { setMenuOpen(false); navigate('/profile/password'); }}>
+              <span>🔑</span> Alterar Senha
+            </button>
+            <button onClick={() => { setMenuOpen(false); navigate('/children'); }}>
+              <span>👥</span> Cadastro de Filhos
+            </button>
             <button onClick={() => { setMenuOpen(false); navigate('/store'); }}>
-              <span>🛒</span> Comprar Créditos
+              <span>📦</span> Ativar Módulos
             </button>
             <button onClick={() => { setMenuOpen(false); navigate('/history'); }}>
-              <span>📋</span> Histórico de consumo
+              <span>📋</span> Histórico de Ações
             </button>
             <div className="user-menu-sep" />
             <button className="danger" onClick={doLogout}>

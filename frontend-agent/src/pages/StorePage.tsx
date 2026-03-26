@@ -125,11 +125,11 @@ function ModulesTab() {
   };
 
   if (loading) return <div className="store-loading">Carregando módulos...</div>;
-  if (modules.length === 0) return <div className="store-empty">Nenhum módulo de valor fixo disponível no momento.</div>;
+  if (modules.length === 0) return <div className="store-empty">Nenhum módulo disponível no momento.</div>;
 
   return (
     <div className="modules-store">
-      <p className="store-subtitle" style={{ marginBottom: 24 }}>
+      <p className="store-subtitle" style={{ display: 'none' }}>
         Módulos de valor fixo — adquira unidades e use cada uma em uma conexão.
       </p>
 
@@ -145,7 +145,9 @@ function ModulesTab() {
                 </div>
               )}
               {m.image_svg && (
-                <div className="module-card-img" dangerouslySetInnerHTML={{ __html: m.image_svg }} />
+                (m.image_svg.startsWith('http') || m.image_svg.startsWith('/'))
+                  ? <img className="module-card-img" src={m.image_svg} alt={m.name} />
+                  : <div className="module-card-img" dangerouslySetInnerHTML={{ __html: m.image_svg }} />
               )}
               <h3 className="module-card-name">{m.name}</h3>
               {m.description && <p className="module-card-desc">{m.description}</p>}
@@ -217,7 +219,7 @@ export default function StorePage() {
   const { balances, costs } = useApp();
   const noBalance = balances.gold < costs.gold && balances.silver < costs.silver && balances.bronze < costs.bronze;
 
-  const [hasFreeModules, setHasFreeModules] = useState(true); // optimistic
+  const [hasFreeModules, setHasFreeModules] = useState(false);
   const [tab,    setTab]    = useState<StoreTab>('chests');
   const [chests, setChests] = useState<CoinChest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -244,8 +246,8 @@ export default function StorePage() {
   return (
     <div className="store-page-inner">
         <div className="store-header">
-          <h1 className="store-title">Loja</h1>
-          <p className="store-subtitle">Escolha o que deseja adquirir</p>
+          <h1 className="store-title">Módulos</h1>
+          <p className="store-subtitle">Escolha os módulos que deseja ativar</p>
         </div>
 
         {/* Tabs */}
@@ -262,7 +264,7 @@ export default function StorePage() {
             className={`store-tab-btn${tab === 'modules' ? ' active' : ''}`}
             onClick={() => setTab('modules')}
           >
-            📦 Comprar Módulos
+            📦 Ativar Módulos
           </button>
         </div>
 

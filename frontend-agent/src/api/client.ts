@@ -150,7 +150,7 @@ export async function apiWrite<T>(
 let _onUnauthenticated: (() => void) | null = null;
 let _unauthHandled = false;
 
-export function setUnauthenticatedHandler(fn: () => void) {
+export function setUnauthenticatedHandler(fn: (() => void) | null) {
   _onUnauthenticated = fn;
 }
 function handleUnauthenticated() {

@@ -80,33 +80,36 @@ export default function ModulePackageList() {
           </p>
           <DataTable
             columns={columns}
-            data={data as Record<string, unknown>[]}
+            data={data as unknown as Record<string, unknown>[]}
             loading={loading}
-            actions={row => (
+            actions={row => {
+              const pkg = row as unknown as ModulePackage;
+              return (
               <div className="action-btns">
                 {hasPerm('agente', 'update') && (
                   <button
                     className="btn-icon btn-edit"
                     title="Editar"
-                    onClick={() => navigate(`/modulos/pacotes/${(row as ModulePackage).id}/editar`)}
+                    onClick={() => navigate(`/modulos/pacotes/${pkg.id}/editar`)}
                   >✎</button>
                 )}
                 {hasPerm('agente', 'update') && (
                   <button
-                    className={`btn-icon ${(row as ModulePackage).is_active ? 'btn-deactivate' : 'btn-activate'}`}
-                    title={(row as ModulePackage).is_active ? 'Desativar' : 'Ativar'}
-                    onClick={() => handleToggle(row as ModulePackage)}
-                  >{(row as ModulePackage).is_active ? '⏸' : '▶'}</button>
+                    className={`btn-icon ${pkg.is_active ? 'btn-deactivate' : 'btn-activate'}`}
+                    title={pkg.is_active ? 'Desativar' : 'Ativar'}
+                    onClick={() => handleToggle(pkg)}
+                  >{pkg.is_active ? '⏸' : '▶'}</button>
                 )}
                 {hasPerm('agente', 'delete') && (
                   <button
                     className="btn-icon btn-delete"
                     title="Excluir"
-                    onClick={() => handleDelete(row as ModulePackage)}
+                    onClick={() => handleDelete(pkg)}
                   >🗑</button>
                 )}
               </div>
-            )}
+              );
+            }}
           />
         </div>
       </div>

@@ -419,75 +419,6 @@ class ModuleUpdate(BaseModel):
     price_brl: Optional[float] = None
 
 
-# ---------------------------------------------------------------------------
-# Flow Steps – Pydantic models + helpers
-# ---------------------------------------------------------------------------
-
-class FlowStepCreate(BaseModel):
-    step_order: int
-    label: Optional[str] = None
-    button_label: Optional[str] = None
-    prompt_template: Optional[str] = None
-    include_user_profile: bool = False
-    is_hidden: bool = True
-
-
-class FlowStepUpdate(BaseModel):
-    step_order: Optional[int] = None
-    label: Optional[str] = None
-    button_label: Optional[str] = None
-    prompt_template: Optional[str] = None
-    include_user_profile: Optional[bool] = None
-    is_hidden: Optional[bool] = None
-
-
-def _flow_step_dict(fs: ModuleFlowStep) -> Dict[str, Any]:
-    return {
-        "id": fs.id,
-        "module_id": fs.module_id,
-        "step_order": fs.step_order,
-        "label": fs.label,
-        "button_label": fs.button_label,
-        "prompt_template": fs.prompt_template,
-        "include_user_profile": bool(fs.include_user_profile),
-        "is_hidden": bool(fs.is_hidden),
-        "created_at": fs.created_at.isoformat() if fs.created_at else None,
-        "updated_at": fs.updated_at.isoformat() if fs.updated_at else None,
-    }
-
-
-def _build_flow_prompt(step: ModuleFlowStep, subject: Any, user: User) -> str:
-    """Substitui variáveis no prompt_template com dados do usuário/filho."""
-    template = step.prompt_template or ""
-
-    full_name      = getattr(subject, "full_name", "") or ""
-    initiatic_name = getattr(subject, "initiatic_name", "") or ""
-    birth_date_raw = getattr(subject, "birth_date", None)
-    birth_time     = getattr(subject, "birth_time", "") or ""
-    birth_country  = getattr(subject, "birth_country", "") or ""
-    birth_state    = getattr(subject, "birth_state", "") or ""
-    birth_city     = getattr(subject, "birth_city", "") or ""
-
-    first = full_name.strip().split()[0] if full_name.strip() else "Amigo"
-    birth_date_str = birth_date_raw.strftime("%d/%m/%Y") if birth_date_raw else ""
-    birth_location = ", ".join(filter(None, [birth_city, birth_state, birth_country]))
-
-    try:
-        return template.format(
-            first=first,
-            full_name=full_name,
-            initiatic_name=initiatic_name,
-            birth_date=birth_date_str,
-            birth_time=birth_time,
-            birth_country=birth_country,
-            birth_state=birth_state,
-            birth_city=birth_city,
-            birth_location=birth_location,
-        )
-    except KeyError:
-        return template  # devolve sem substituição se houver variável inválida
-
-
 @app.get("/admin/modules")
 def admin_list_modules(
     admin: User = Depends(require_admin),
@@ -593,98 +524,6 @@ def admin_delete_module(
     if not m:
         raise HTTPException(status_code=404, detail="Módulo não encontrado")
     db.delete(m)
-    db.commit()
-
-
-# ---------------------------------------------------------------------------
-# Admin – Module Flow Steps CRUD
-# ---------------------------------------------------------------------------
-
-@app.get("/admin/modules/{mid}/flow-steps")
-def admin_list_flow_steps(
-    mid: int,
-    admin: User = Depends(require_admin),
-    db: Session = Depends(get_db),
-):
-    if not db.get(Module, mid):
-        raise HTTPException(status_code=404, detail="Módulo não encontrado")
-    steps = (
-        db.query(ModuleFlowStep)
-        .filter(ModuleFlowStep.module_id == mid)
-        .order_by(ModuleFlowStep.step_order)
-        .all()
-    )
-    return {"items": [_flow_step_dict(fs) for fs in steps]}
-
-
-@app.post("/admin/modules/{mid}/flow-steps", status_code=201)
-def admin_create_flow_step(
-    mid: int,
-    payload: FlowStepCreate,
-    admin: User = Depends(require_admin),
-    db: Session = Depends(get_db),
-    _csrf: None = Depends(require_csrf_header),
-):
-    if not db.get(Module, mid):
-        raise HTTPException(status_code=404, detail="Módulo não encontrado")
-    existing = db.query(ModuleFlowStep).filter(
-        ModuleFlowStep.module_id == mid,
-        ModuleFlowStep.step_order == payload.step_order,
-    ).first()
-    if existing:
-        raise HTTPException(status_code=409, detail=f"Já existe um passo com step_order={payload.step_order}")
-    fs = ModuleFlowStep(
-        module_id=mid,
-        step_order=payload.step_order,
-        label=payload.label,
-        button_label=payload.button_label,
-        prompt_template=payload.prompt_template,
-        include_user_profile=payload.include_user_profile,
-        is_hidden=payload.is_hidden,
-    )
-    db.add(fs)
-    db.commit()
-    db.refresh(fs)
-    return _flow_step_dict(fs)
-
-
-@app.put("/admin/modules/{mid}/flow-steps/{step_id}")
-def admin_update_flow_step(
-    mid: int,
-    step_id: int,
-    payload: FlowStepUpdate,
-    admin: User = Depends(require_admin),
-    db: Session = Depends(get_db),
-    _csrf: None = Depends(require_csrf_header),
-):
-    fs = db.query(ModuleFlowStep).filter(
-        ModuleFlowStep.id == step_id,
-        ModuleFlowStep.module_id == mid,
-    ).first()
-    if not fs:
-        raise HTTPException(status_code=404, detail="Passo não encontrado")
-    for field, val in payload.dict(exclude_none=True).items():
-        setattr(fs, field, val)
-    db.commit()
-    db.refresh(fs)
-    return _flow_step_dict(fs)
-
-
-@app.delete("/admin/modules/{mid}/flow-steps/{step_id}", status_code=204)
-def admin_delete_flow_step(
-    mid: int,
-    step_id: int,
-    admin: User = Depends(require_admin),
-    db: Session = Depends(get_db),
-    _csrf: None = Depends(require_csrf_header),
-):
-    fs = db.query(ModuleFlowStep).filter(
-        ModuleFlowStep.id == step_id,
-        ModuleFlowStep.module_id == mid,
-    ).first()
-    if not fs:
-        raise HTTPException(status_code=404, detail="Passo não encontrado")
-    db.delete(fs)
     db.commit()
 
 
@@ -808,16 +647,18 @@ def list_user_modules(user: User = Depends(require_user), db: Session = Depends(
     from sqlalchemy import func as sa_func
     rows = db.query(UserModule).filter(UserModule.user_id == user.id).all()
     total_quantity = sum(r.quantity for r in rows)
-    # Count ALL active sessions for this user (pool-based)
-    total_active = db.query(ChatSession).filter(ChatSession.user_id == user.id).count()
+    # Conta apenas sessões onde o fluxo já foi iniciado (flow_step > 0)
+    total_active = db.query(ChatSession).filter(
+        ChatSession.user_id == user.id, ChatSession.flow_step > 0
+    ).count()
     total_available = max(0, total_quantity - total_active)
     if not rows:
-        return {"items": [], "total_quantity": 0, "total_active": total_active, "total_available": 0}
+        return {"items": [], "total_quantity": 0, "total_active": 0, "total_available": 0}
     module_ids = [r.module_id for r in rows]
-    # Count active sessions per module for this user (kept for reference)
+    # Count started sessions per module for this user
     counts = dict(
         db.query(ChatSession.module_id, sa_func.count(ChatSession.id))
-        .filter(ChatSession.user_id == user.id, ChatSession.module_id.in_(module_ids))
+        .filter(ChatSession.user_id == user.id, ChatSession.module_id.in_(module_ids), ChatSession.flow_step > 0)
         .group_by(ChatSession.module_id)
         .all()
     )
@@ -915,8 +756,39 @@ def purchase_modules(
 # Sessions
 # ---------------------------------------------------------------------------
 
+def _build_flow_prompt(step: ModuleFlowStep, subject: Any, user: User) -> str:
+    """Substitui variáveis no prompt_template com dados do usuário/filho."""
+    template = step.prompt_template or ""
+
+    full_name      = getattr(subject, "full_name", "") or ""
+    initiatic_name = getattr(subject, "initiatic_name", "") or ""
+    birth_date_raw = getattr(subject, "birth_date", None)
+    birth_time     = getattr(subject, "birth_time", "") or ""
+    birth_country  = getattr(subject, "birth_country", "") or ""
+    birth_state    = getattr(subject, "birth_state", "") or ""
+    birth_city     = getattr(subject, "birth_city", "") or ""
+
+    first = full_name.strip().split()[0] if full_name.strip() else "Amigo"
+    birth_date_str = birth_date_raw.strftime("%d/%m/%Y") if birth_date_raw else ""
+    birth_location = ", ".join(filter(None, [birth_city, birth_state, birth_country]))
+
+    try:
+        return template.format(
+            first=first,
+            full_name=full_name,
+            initiatic_name=initiatic_name,
+            birth_date=birth_date_str,
+            birth_time=birth_time,
+            birth_country=birth_country,
+            birth_state=birth_state,
+            birth_city=birth_city,
+            birth_location=birth_location,
+        )
+    except KeyError:
+        return template  # devolve sem substituição se houver variável inválida
+
+
 def session_to_dict(s: ChatSession) -> Dict[str, Any]:
-    # Determine the next flow button label (if any)
     flow_step = s.flow_step or 0
     flow_next_button: Optional[str] = None
     if s.module:
@@ -983,6 +855,7 @@ def list_item_from_session(s: ChatSession) -> Dict[str, Any]:
         "updated_at": s.updated_at.isoformat() if s.updated_at else None,
         "preview": preview,
         "coins_consumed": coins_consumed,
+        "flow_step": s.flow_step or 0,
     }
 
 
@@ -997,24 +870,23 @@ def create_session(
     if not module or not module.is_active:
         raise HTTPException(status_code=404, detail="Módulo não encontrado.")
 
-    # Módulo fixo: verificar pool total de unidades disponíveis (independente do módulo específico)
+    # Módulo fixo: verificar se o usuário adquiriu e tem unidades disponíveis
     if module.module_type == "fixed":
-        from sqlalchemy import func as sa_func
-        total_qty = db.query(sa_func.sum(UserModule.quantity)).filter(
-            UserModule.user_id == user.id
-        ).scalar() or 0
-        if total_qty == 0:
+        owned = db.query(UserModule).filter(
+            UserModule.user_id == user.id, UserModule.module_id == module.id
+        ).first()
+        if not owned:
             raise HTTPException(
                 status_code=402,
-                detail="Você não possui módulos adquiridos. Compre na loja para ter acesso.",
+                detail="Você não adquiriu este módulo. Compre-o na loja para ter acesso.",
             )
-        total_active = db.query(ChatSession).filter(
-            ChatSession.user_id == user.id
+        used_count = db.query(ChatSession).filter(
+            ChatSession.user_id == user.id, ChatSession.module_id == module.id, ChatSession.flow_step > 0
         ).count()
-        if total_active >= total_qty:
+        if used_count >= owned.quantity:
             raise HTTPException(
                 status_code=402,
-                detail="Você atingiu o limite de conexões disponíveis. Adquira mais unidades na loja.",
+                detail="Você atingiu o limite de conexões para este módulo. Adquira mais unidades na loja.",
             )
 
     # Validate child belongs to this user (if provided)
@@ -1112,69 +984,9 @@ def delete_session(
     )
     if not s:
         raise HTTPException(status_code=404, detail="Sessão não encontrada.")
+    if s.flow_step and s.flow_step > 0:
+        raise HTTPException(status_code=403, detail="Não é possível excluir uma conexão que já foi iniciada.")
     db.delete(s)
-    db.commit()
-    return {"status": "ok"}
-
-
-@app.post("/sessions/{cid}/send-opening")
-def send_opening(
-    cid: str,
-    user: User = Depends(require_user),
-    db: Session = Depends(get_db),
-    _csrf: None = Depends(require_csrf_header),
-):
-    """Dispara o opening prompt do módulo na sessão.
-
-    Resolve as variáveis do template com dados do usuário/filho,
-    persiste como mensagem de usuário e retorna ok.
-    O cliente deve então abrir o SSE para receber a resposta do agente.
-    Funciona para módulos fixed (diferente do /messages comum).
-    """
-    s = (
-        db.query(ChatSession)
-        .filter(ChatSession.id == cid, ChatSession.user_id == user.id)
-        .first()
-    )
-    if not s:
-        raise HTTPException(status_code=404, detail="Sessão não encontrada.")
-
-    if not s.module or not s.module.use_opening_prompt or not s.module.opening_prompt:
-        raise HTTPException(status_code=400, detail="Módulo não possui opening prompt configurado.")
-
-    # Não reenvia se já existe mensagem de usuário na sessão
-    existing = db.query(Message).filter(
-        Message.session_id == s.id, Message.role == "user"
-    ).first()
-    if existing:
-        return {"status": "already_sent"}
-
-    subject = s.child if s.child_id and s.child else user
-
-    # Reutiliza a mesma lógica de substituição do flow-advance
-    template = s.module.opening_prompt
-    full_name      = getattr(subject, "full_name", "") or ""
-    initiatic_name = getattr(subject, "initiatic_name", "") or ""
-    birth_date_raw = getattr(subject, "birth_date", None)
-    birth_time     = getattr(subject, "birth_time", "") or ""
-    birth_country  = getattr(subject, "birth_country", "") or ""
-    birth_state    = getattr(subject, "birth_state", "") or ""
-    birth_city     = getattr(subject, "birth_city", "") or ""
-    first = full_name.strip().split()[0] if full_name.strip() else "Amigo"
-    birth_date_str = birth_date_raw.strftime("%d/%m/%Y") if birth_date_raw else ""
-    birth_location = ", ".join(filter(None, [birth_city, birth_state, birth_country]))
-    try:
-        prompt = template.format(
-            first=first, full_name=full_name, initiatic_name=initiatic_name,
-            birth_date=birth_date_str, birth_time=birth_time,
-            birth_country=birth_country, birth_state=birth_state,
-            birth_city=birth_city, birth_location=birth_location,
-        )
-    except KeyError:
-        prompt = template
-
-    db.add(Message(session_id=s.id, role="user", content=prompt, hidden=True))
-    s.updated_at = datetime.now(timezone.utc)
     db.commit()
     return {"status": "ok"}
 
@@ -1212,11 +1024,9 @@ def flow_advance(
     if not step:
         raise HTTPException(status_code=404, detail="Nenhum próximo passo de fluxo definido.")
 
-    # Resolve o sujeito (filho ou usuário logado)
     subject = s.child if s.child_id and s.child else user
     prompt = _build_flow_prompt(step, subject, user)
 
-    # Persiste a mensagem (oculta ou não conforme configurado)
     db.add(Message(
         session_id=s.id,
         role="user",
@@ -1227,7 +1037,6 @@ def flow_advance(
     s.updated_at = datetime.now(timezone.utc)
     db.commit()
 
-    # Busca botão do próximo-próximo passo
     next_next = (
         db.query(ModuleFlowStep)
         .filter(
@@ -1241,7 +1050,68 @@ def flow_advance(
         "status": "ok",
         "flow_step": s.flow_step,
         "flow_next_button": next_next.button_label if next_next else None,
+        "flow_next_response": next_next.user_response if next_next else None,
     }
+
+
+@app.post("/sessions/{cid}/send-opening")
+def send_opening(
+    cid: str,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+    _csrf: None = Depends(require_csrf_header),
+):
+    """Dispara o opening prompt do módulo na sessão.
+
+    Resolve as variáveis do template com dados do usuário/filho,
+    persiste como mensagem de usuário e retorna ok.
+    O cliente deve então abrir o SSE para receber a resposta do agente.
+    """
+    s = (
+        db.query(ChatSession)
+        .filter(ChatSession.id == cid, ChatSession.user_id == user.id)
+        .first()
+    )
+    if not s:
+        raise HTTPException(status_code=404, detail="Sessão não encontrada.")
+
+    if not s.module or not s.module.use_opening_prompt or not s.module.opening_prompt:
+        raise HTTPException(status_code=400, detail="Módulo não possui opening prompt configurado.")
+
+    # Não reenvia se já existe mensagem de usuário na sessão
+    existing = db.query(Message).filter(
+        Message.session_id == s.id, Message.role == "user"
+    ).first()
+    if existing:
+        return {"status": "already_sent"}
+
+    subject = s.child if s.child_id and s.child else user
+    template = s.module.opening_prompt
+    full_name      = getattr(subject, "full_name", "") or ""
+    initiatic_name = getattr(subject, "initiatic_name", "") or ""
+    birth_date_raw = getattr(subject, "birth_date", None)
+    birth_time     = getattr(subject, "birth_time", "") or ""
+    birth_country  = getattr(subject, "birth_country", "") or ""
+    birth_state    = getattr(subject, "birth_state", "") or ""
+    birth_city     = getattr(subject, "birth_city", "") or ""
+    first = full_name.strip().split()[0] if full_name.strip() else "Amigo"
+    birth_date_str = birth_date_raw.strftime("%d/%m/%Y") if birth_date_raw else ""
+    birth_location = ", ".join(filter(None, [birth_city, birth_state, birth_country]))
+    try:
+        prompt = template.format(
+            first=first, full_name=full_name, initiatic_name=initiatic_name,
+            birth_date=birth_date_str, birth_time=birth_time,
+            birth_country=birth_country, birth_state=birth_state,
+            birth_city=birth_city, birth_location=birth_location,
+        )
+    except KeyError:
+        prompt = template
+
+    _ = s.module  # já carregado
+    db.add(Message(session_id=s.id, role="user", content=prompt, hidden=True))
+    s.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    return {"status": "ok"}
 
 
 # ---------------------------------------------------------------------------
@@ -1288,6 +1158,43 @@ def get_transactions(user: User = Depends(require_user), db: Session = Depends(g
                 "coin_type":   r.coin_type,
                 "description": r.description,
                 "created_at":  r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in rows
+        ]
+    }
+
+
+@app.get("/auth/module-orders")
+def get_module_orders(user: User = Depends(require_user), db: Session = Depends(get_db)):
+    PAY_LABELS = {
+        "credit_card": "Cartão de crédito",
+        "pix": "PIX",
+        "boleto": "Boleto",
+    }
+    STATUS_LABELS = {
+        "pending":   "Pendente",
+        "completed": "Concluído",
+        "cancelled": "Cancelado",
+        "refunded":  "Reembolsado",
+    }
+    rows = (
+        db.query(ModuleOrder)
+        .filter(ModuleOrder.user_id == user.id)
+        .order_by(ModuleOrder.created_at.desc())
+        .limit(200)
+        .all()
+    )
+    return {
+        "items": [
+            {
+                "id":             r.id,
+                "quantity":       r.quantity,
+                "price_brl":      float(r.price_brl),
+                "payment_method": r.payment_method,
+                "payment_label":  PAY_LABELS.get(r.payment_method, r.payment_method),
+                "status":         r.status,
+                "status_label":   STATUS_LABELS.get(r.status, r.status),
+                "created_at":     r.created_at.isoformat() if r.created_at else None,
             }
             for r in rows
         ]

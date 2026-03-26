@@ -1,8 +1,9 @@
-import { FormEvent, useEffect, useState, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { FormEvent, useEffect, useState, useCallback, useRef } from 'react';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import { createModule, getModule, updateModule, listFlowSteps, createFlowStep, updateFlowStep, deleteFlowStep } from '../../api/modules';
 import { swal } from '../../utils/swal';
+import { useAuth } from '../../context/AuthContext';
 import type { ModuleFlowStep } from '../../types';
 
 interface FormState {
@@ -12,6 +13,7 @@ interface FormState {
   image_svg: string;
   system_prompt: string;
   use_opening_prompt: boolean;
+  show_opening_prompt: boolean;
   opening_prompt: string;
   welcome_message: string;
   few_shot: string;
@@ -26,6 +28,7 @@ const empty: FormState = {
   image_svg: '',
   system_prompt: '',
   use_opening_prompt: false,
+  show_opening_prompt: false,
   opening_prompt: '',
   welcome_message: '',
   few_shot: '',
@@ -39,7 +42,9 @@ const EMPTY_STEP: Omit<ModuleFlowStep, 'id' | 'module_id' | 'created_at' | 'upda
   step_order: 1,
   label: '',
   button_label: '',
+  button_response: '',
   prompt_template: '',
+  step_system_prompt: '',
   include_user_profile: false,
   is_hidden: true,
 };
@@ -84,10 +89,17 @@ function FlowStepModal({ step, onSave, onClose }: FlowStepModalProps) {
           </div>
 
           <div className="form-group">
-            <label>Texto do botão (button_label)</label>
+            <label>Pergunta do agente / Texto do botão (button_label)</label>
             <input type="text" value={form.button_label ?? ''} onChange={set('button_label')}
               placeholder="Ex: Você aceita e permite essa travessia?" />
-            <small>Botão exibido ao usuário para disparar este passo. Deixe vazio se o passo não precisa de botão.</small>
+            <small>Aparece como botão e, após o clique, como bubble do agente no chat.</small>
+          </div>
+
+          <div className="form-group">
+            <label>Resposta do usuário (button_response)</label>
+            <input type="text" value={form.button_response ?? ''} onChange={set('button_response')}
+              placeholder="Ex: Sim, eu aceito e permito essa travessia" />
+            <small>Texto exibido como bubble do usuário após clicar no botão. Se vazio, usa o mesmo texto do botão.</small>
           </div>
 
           <div className="form-group">
@@ -100,6 +112,14 @@ function FlowStepModal({ step, onSave, onClose }: FlowStepModalProps) {
               <code>{'{birth_date}'}</code> <code>{'{birth_time}'}</code> <code>{'{birth_location}'}</code>{' '}
               <code>{'{birth_city}'}</code> <code>{'{birth_state}'}</code> <code>{'{birth_country}'}</code>
             </small>
+          </div>
+
+          <div className="form-group">
+            <label>System Prompt do Passo <span style={{ fontWeight:400, color:'#6b7280', fontSize:12 }}>(sobrescreve o System Prompt do módulo neste passo)</span></label>
+            <textarea rows={8} className="system-prompt-area"
+              value={form.step_system_prompt ?? ''} onChange={set('step_system_prompt')}
+              placeholder="Instrução rígida de formato para este passo específico. Se vazio, usa o System Prompt do módulo." />
+            <small>Use para impor estrutura estrita na resposta (ex.: obrigar a resposta em seções específicas, proibir desvios, etc.).</small>
           </div>
 
           <div style={{ display:'flex', gap:24, flexWrap:'wrap' }}>
@@ -133,10 +153,16 @@ export default function ModuleForm() {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
+  const location = useLocation();
+  const { hasResource } = useAuth();
+  const canEditPrompts = hasResource('configuracoes');
+  const cloneState = location.state as { cloneFrom?: import('../../types').Module; flowSteps?: ModuleFlowStep[] } | null;
 
   const [form, setForm] = useState<FormState>(empty);
-  const [loading, setLoading] = useState(false);
-  const [saving,  setSaving]  = useState(false);
+  const [loading,   setLoading]   = useState(false);
+  const [saving,    setSaving]    = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const imageRef = useRef<HTMLInputElement>(null);
 
   // Flow steps state
   const [flowSteps, setFlowSteps] = useState<ModuleFlowStep[]>([]);
@@ -148,7 +174,26 @@ export default function ModuleForm() {
   }, [id]);
 
   useEffect(() => {
-    if (!isEdit) return;
+    if (!isEdit) {
+      if (cloneState?.cloneFrom) {
+        const m = cloneState.cloneFrom;
+        setForm({
+          slug: `${m.slug}-copia`,
+          name: `${m.name} (Cópia)`,
+          description: m.description ?? '',
+          image_svg: m.image_svg ?? '',
+          system_prompt: m.system_prompt,
+          use_opening_prompt: m.use_opening_prompt ?? false,
+          show_opening_prompt: m.show_opening_prompt ?? false,
+          opening_prompt: m.opening_prompt ?? '',
+          welcome_message: m.welcome_message ?? '',
+          few_shot: m.few_shot ?? '',
+          module_type: m.module_type ?? 'free',
+          price_brl: m.price_brl != null ? String(m.price_brl) : '',
+        });
+      }
+      return;
+    }
     setLoading(true);
     getModule(Number(id))
       .then(m => setForm({
@@ -158,6 +203,7 @@ export default function ModuleForm() {
         image_svg: m.image_svg ?? '',
         system_prompt: m.system_prompt,
         use_opening_prompt: m.use_opening_prompt ?? false,
+        show_opening_prompt: m.show_opening_prompt ?? false,
         opening_prompt: m.opening_prompt ?? '',
         welcome_message: m.welcome_message ?? '',
         few_shot: m.few_shot ?? '',
@@ -171,14 +217,47 @@ export default function ModuleForm() {
   const set = (k: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm(prev => ({ ...prev, [k]: e.target.value }));
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const data = new FormData();
+      data.append('image', file);
+      const r = await fetch('/api/upload/module-image', { method: 'POST', credentials: 'include', body: data });
+      if (!r.ok) throw new Error((await r.json()).error || 'Erro no upload');
+      const { url } = await r.json();
+      setForm(prev => ({ ...prev, image_svg: url }));
+    } catch (err: any) {
+      swal.error('Erro no upload', err.message);
+    } finally {
+      setUploading(false);
+      if (imageRef.current) imageRef.current.value = '';
+    }
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
+      const payload = { ...form, price_brl: Number(form.price_brl) };
       if (isEdit) {
-        await updateModule(Number(id), form);
+        await updateModule(Number(id), payload);
       } else {
-        await createModule(form);
+        const created = await createModule(payload);
+        const stepsToClone = cloneState?.flowSteps ?? [];
+        for (const step of stepsToClone) {
+          await createFlowStep(created.id, {
+            step_order: step.step_order,
+            label: step.label,
+            button_label: step.button_label,
+            button_response: step.button_response,
+            prompt_template: step.prompt_template,
+            step_system_prompt: step.step_system_prompt,
+            include_user_profile: step.include_user_profile,
+            is_hidden: step.is_hidden,
+          });
+        }
       }
       await swal.success(isEdit ? 'Módulo atualizado!' : 'Módulo criado!');
       navigate('/modulos');
@@ -212,13 +291,16 @@ export default function ModuleForm() {
     loadFlowSteps();
   };
 
-  if (loading) return <Layout title={isEdit ? 'Editar Módulo' : 'Novo Módulo'}><p>Carregando...</p></Layout>;
+  const pageTitle = isEdit ? 'Editar Módulo' : cloneState?.cloneFrom ? 'Duplicar Módulo' : 'Novo Módulo';
+  const formTitle = isEdit ? 'Editar Módulo' : cloneState?.cloneFrom ? `Duplicar: ${cloneState.cloneFrom.name}` : 'Incluir Módulo';
+
+  if (loading) return <Layout title={pageTitle}><p>Carregando...</p></Layout>;
 
   return (
-    <Layout title={isEdit ? 'Editar Módulo' : 'Novo Módulo'}>
+    <Layout title={pageTitle}>
       <div className="card" style={{ maxWidth: 800 }}>
         <div className="card-header">
-          <h2>{isEdit ? 'Editar Módulo' : 'Incluir Módulo'}</h2>
+          <h2>{formTitle}</h2>
         </div>
         <div className="card-body">
           <form onSubmit={handleSubmit} className="admin-form">
@@ -302,87 +384,130 @@ export default function ModuleForm() {
             </div>
 
             <div className="form-group">
-              <label>Imagem SVG</label>
-              <textarea
-                value={form.image_svg}
-                onChange={set('image_svg')}
-                placeholder="Cole aqui o código SVG (ex: <svg ...>...</svg>)"
-                rows={5}
-                className="system-prompt-area"
-              />
+              <label>Imagem do Módulo</label>
               {form.image_svg && (
-                <div style={{ marginTop: 8, padding: 12, background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6, display: 'inline-block' }}>
-                  <span style={{ fontSize: 11, color: '#6b7280', display: 'block', marginBottom: 4 }}>Pré-visualização:</span>
-                  <span dangerouslySetInnerHTML={{ __html: form.image_svg }} />
+                <div style={{ marginBottom: 10, padding: 12, background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6, display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
+                  <span style={{ fontSize: 11, color: '#6b7280' }}>Pré-visualização:</span>
+                  {form.image_svg.startsWith('http') || form.image_svg.startsWith('/')
+                    ? <img src={form.image_svg} alt="imagem do módulo" style={{ maxHeight: 80, maxWidth: 200, objectFit: 'contain' }} />
+                    : <span dangerouslySetInnerHTML={{ __html: form.image_svg }} />
+                  }
                 </div>
               )}
-              <small>Imagem exibida na seleção de módulo pelo cliente. Use SVG inline.</small>
-            </div>
-
-            <div className="form-group">
-              <label>System Prompt <span className="req">*</span></label>
-              <textarea
-                value={form.system_prompt}
-                onChange={set('system_prompt')}
-                placeholder="Instruções de comportamento do agente para este módulo..."
-                required
-                rows={14}
-                className="system-prompt-area"
-              />
-              <small>{form.system_prompt.length} caracteres</small>
-            </div>
-
-            <div className="form-group">
-              <label className="form-check-label">
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => imageRef.current?.click()}
+                  disabled={uploading}
+                >
+                  {uploading ? 'Enviando…' : form.image_svg ? '🔄 Trocar imagem' : '📤 Upload de imagem'}
+                </button>
+                {form.image_svg && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ color: '#dc2626', borderColor: '#dc2626' }}
+                    onClick={() => setForm(prev => ({ ...prev, image_svg: '' }))}
+                  >
+                    🗑 Remover
+                  </button>
+                )}
                 <input
-                  type="checkbox"
-                  checked={form.use_opening_prompt}
-                  onChange={e => setForm(prev => ({ ...prev, use_opening_prompt: e.target.checked }))}
+                  ref={imageRef}
+                  type="file"
+                  accept=".png,.jpg,.jpeg,.webp,.svg,.gif"
+                  style={{ display: 'none' }}
+                  onChange={handleImageUpload}
                 />
-                Usar Opening Prompt (envia mensagem oculta à IA para gerar saudação)
-              </label>
-              <small>
-                Quando ativado, a IA gera a mensagem de abertura. Quando desativado, exibe uma mensagem estática sem custo de moedas.
-              </small>
+              </div>
+              <small style={{ marginTop: 6, display: 'block' }}>PNG, JPG, WebP, GIF ou SVG · máx. 2 MB. Exibida na seleção de módulo pelo cliente.</small>
             </div>
 
-            {form.use_opening_prompt ? (
-              <div className="form-group">
-                <label>Opening Prompt</label>
-                <textarea
-                  value={form.opening_prompt}
-                  onChange={set('opening_prompt')}
-                  placeholder="Ex: Cumprimente {first} de forma calorosa e apresente o módulo..."
-                  rows={5}
-                  className="system-prompt-area"
-                />
-                <small>Use <code>{'{first}'}</code> para o primeiro nome do usuário. Esta mensagem é enviada à IA de forma oculta.</small>
-              </div>
-            ) : (
-              <div className="form-group">
-                <label>Mensagem de Abertura (Welcome Message)</label>
-                <textarea
-                  value={form.welcome_message}
-                  onChange={set('welcome_message')}
-                  placeholder={`Ex: Olá, {first}! Bem-vindo ao módulo. Como posso ajudar?`}
-                  rows={4}
-                  className="system-prompt-area"
-                />
-                <small>Exibida localmente sem chamar a IA. Use <code>{'{first}'}</code> para o primeiro nome do usuário.</small>
-              </div>
+            {canEditPrompts && (
+              <>
+                <div className="form-group">
+                  <label>System Prompt <span className="req">*</span></label>
+                  <textarea
+                    value={form.system_prompt}
+                    onChange={set('system_prompt')}
+                    placeholder="Instruções de comportamento do agente para este módulo..."
+                    required
+                    rows={14}
+                    className="system-prompt-area"
+                  />
+                  <small>{form.system_prompt.length} caracteres</small>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-check-label">
+                    <input
+                      type="checkbox"
+                      checked={form.use_opening_prompt}
+                      onChange={e => setForm(prev => ({ ...prev, use_opening_prompt: e.target.checked }))}
+                    />
+                    Usar Opening Prompt (envia mensagem oculta à IA para gerar saudação)
+                  </label>
+                  <small>
+                    Quando ativado, a IA gera a mensagem de abertura. Quando desativado, exibe uma mensagem estática sem custo de moedas.
+                  </small>
+                </div>
+
+                {form.use_opening_prompt && (
+                  <div className="form-group">
+                    <label className="form-check-label">
+                      <input
+                        type="checkbox"
+                        checked={form.show_opening_prompt}
+                        onChange={e => setForm(prev => ({ ...prev, show_opening_prompt: e.target.checked }))}
+                      />
+                      Exibir Opening Prompt na área de mensagens do usuário
+                    </label>
+                    <small>
+                      Quando marcado, o texto do Opening Prompt aparece como uma mensagem do usuário no chat. Por padrão fica oculto (mensagem técnica invisível).
+                    </small>
+                  </div>
+                )}
+
+                {form.use_opening_prompt ? (
+                  <div className="form-group">
+                    <label>Opening Prompt</label>
+                    <textarea
+                      value={form.opening_prompt}
+                      onChange={set('opening_prompt')}
+                      placeholder="Ex: Cumprimente {first} de forma calorosa e apresente o módulo..."
+                      rows={5}
+                      className="system-prompt-area"
+                    />
+                    <small>Use <code>{'{first}'}</code> para o primeiro nome do usuário. Esta mensagem é enviada à IA de forma oculta.</small>
+                  </div>
+                ) : (
+                  <div className="form-group">
+                    <label>Mensagem de Abertura (Welcome Message)</label>
+                    <textarea
+                      value={form.welcome_message}
+                      onChange={set('welcome_message')}
+                      placeholder={`Ex: Olá, {first}! Bem-vindo ao módulo. Como posso ajudar?`}
+                      rows={4}
+                      className="system-prompt-area"
+                    />
+                    <small>Exibida localmente sem chamar a IA. Use <code>{'{first}'}</code> para o primeiro nome do usuário.</small>
+                  </div>
+                )}
+
+                <div className="form-group">
+                  <label>Few-Shot (exemplos para o modelo)</label>
+                  <textarea
+                    value={form.few_shot}
+                    onChange={set('few_shot')}
+                    placeholder="Cole aqui exemplos de conversa para guiar o comportamento do modelo..."
+                    rows={8}
+                    className="system-prompt-area"
+                  />
+                  <small>{form.few_shot.length} caracteres</small>
+                </div>
+              </>
             )}
-
-            <div className="form-group">
-              <label>Few-Shot (exemplos para o modelo)</label>
-              <textarea
-                value={form.few_shot}
-                onChange={set('few_shot')}
-                placeholder="Cole aqui exemplos de conversa para guiar o comportamento do modelo..."
-                rows={8}
-                className="system-prompt-area"
-              />
-              <small>{form.few_shot.length} caracteres</small>
-            </div>
 
             <div className="form-actions">
               <button type="button" className="btn btn-secondary" onClick={() => navigate('/modulos')}>
@@ -396,8 +521,8 @@ export default function ModuleForm() {
         </div>
       </div>
 
-      {/* ── Passos do Fluxo (apenas em edição) ─────────────────────────── */}
-      {isEdit && (
+      {/* ── Passos do Fluxo (apenas em edição + permissão configuracoes) ── */}
+      {isEdit && canEditPrompts && (
         <div className="card" style={{ maxWidth: 800, marginTop: 24 }}>
           <div className="card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
             <div>

@@ -30,6 +30,7 @@ export function openSSE(cid: string, handlers: SSEHandlers): () => void {
     if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
 
     let lastLength = 0;
+    let doneCalled = false;
     xhr.onreadystatechange = () => {
       if (aborted) return;
       if (xhr.readyState >= 3) {
@@ -49,7 +50,7 @@ export function openSSE(cid: string, handlers: SSEHandlers): () => void {
             if (eventName === 'token' || eventName === '') {
               try { handlers.onToken(JSON.parse(data)); } catch { handlers.onToken(data); }
             } else if (eventName === 'done') {
-              handlers.onDone();
+              if (!doneCalled) { doneCalled = true; handlers.onDone(); }
             } else if (eventName === 'error') {
               handlers.onError(data);
             }
@@ -57,7 +58,8 @@ export function openSSE(cid: string, handlers: SSEHandlers): () => void {
           }
         }
       }
-      if (xhr.readyState === 4 && !aborted) {
+      if (xhr.readyState === 4 && !aborted && !doneCalled) {
+        doneCalled = true;
         handlers.onDone();
       }
     };

@@ -31,7 +31,18 @@
       "Bash(python -c \":*)",
       "Bash(pip install:*)",
       "Bash(python -c \"import sys; data=sys.stdin.buffer.read\\(\\); print\\(data.decode\\(''''utf-8'''',''''replace''''\\)\\)\")",
-      "Bash(python -c \"from models import ModuleFlowStep, ChatSession, Message; print\\(''models OK''\\); from app import _flow_step_dict, _build_flow_prompt; print\\(''helpers OK''\\)\")"
+      "Bash(python -c \"from models import ModuleFlowStep, ChatSession, Message; print\\(''models OK''\\); from app import _flow_step_dict, _build_flow_prompt; print\\(''helpers OK''\\)\")",
+      "Bash(grep -n \"history\\\\|History\\\\|consumo\\\\|transaction\" c:/Projetos/project-amaracyta/frontend-agent/src/pages/*.tsx)",
+      "Bash(grep -n \"session\\\\|listSession\\\\|getSessions\" c:/Projetos/project-amaracyta/frontend-agent/src/api/*.ts)",
+      "Bash(python -m alembic upgrade head)",
+      "Bash(.venv/Scripts/alembic upgrade:*)",
+      "Bash(python apply_migration_005.py)",
+      "Bash(grep -r \"uvicorn\\\\|port\\\\|PORT\" /c/Projetos/project-amaracyta/backend-agent/*.py)",
+      "Bash(grep -r uvicorn /c/Projetos/project-amaracyta/backend-agent --include=*.py --include=*.txt --include=*.sh)",
+      "Bash(npm install:*)",
+      "Bash(npm run:*)",
+      "Read(//c/Projetos/project-amaracyta-github/backend-agent/**)",
+      "Read(//c/Projetos/project-amaracyta-github/frontend-agent/src/**)"
     ]
   }
 }

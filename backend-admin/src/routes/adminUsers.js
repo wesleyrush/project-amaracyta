@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const db = require('../db');
 const { requireAuth, requirePermission } = require('../middleware/auth');
 
-const RESOURCES = ['agente', 'clientes', 'usuarios'];
+const RESOURCES = ['agente', 'clientes', 'usuarios', 'cobranca', 'pedidos', 'configuracoes'];
 
 // GET /api/admin-users
 router.get('/', requireAuth, async (req, res) => {

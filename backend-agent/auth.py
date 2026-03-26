@@ -148,21 +148,8 @@ def logout(request: Request, response: Response):
     from security import verify_csrf_header
     verify_csrf_header(request)
 
-    params = cookie_params()
-    domain = params.get("domain", None)
-
-    def drop(name: str, path: str):
-        if domain:
-            response.delete_cookie(name, path=path, domain=domain)
-        else:
-            response.delete_cookie(name, path=path)
-
-    for p in ("/api", "/"):   # cubra ambas as origens, se houver
-        drop("access_token",  p)
-        drop("refresh_token", p)
-
-    # se você emite cookie público de CSRF, pode limpar também:
-    # drop("csrf_token", "/api"); drop("csrf_token", "/")
+    response.delete_cookie("access_token")
+    response.delete_cookie("refresh_token")
 
     return {"status": "ok"}
 

@@ -11,4 +11,6 @@ node src/server.js
 Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
 npm run dev
 
+systemctl restart backend-agent.service && systemctl status backend-agent.service
+
 senha FTP: Am@r4cyTa777

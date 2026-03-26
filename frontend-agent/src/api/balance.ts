@@ -16,5 +16,17 @@ export interface CoinTransactionItem {
   created_at: string;
 }
 
+export interface ModuleOrderItem {
+  id: number;
+  quantity: number;
+  price_brl: number;
+  payment_method: string;
+  payment_label: string;
+  status: string;
+  status_label: string;
+  created_at: string;
+}
+
 export const getBalance = () => apiGet<BalanceResponse>('/auth/balance');
 export const getTransactions = () => apiGet<{ items: CoinTransactionItem[] }>('/auth/transactions');
+export const getModuleOrders = () => apiGet<{ items: ModuleOrderItem[] }>('/auth/module-orders');
