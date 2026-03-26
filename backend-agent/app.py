@@ -16,8 +16,15 @@ import json
 import uuid
 import asyncio
 from decimal import Decimal
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List, AsyncIterator
+import pytz
+
+_BRASILIA = pytz.timezone('America/Sao_Paulo')
+
+def _now() -> datetime:
+    """Data/hora atual no fuso horário de Brasília (naive, para MySQL)."""
+    return datetime.now(_BRASILIA).replace(tzinfo=None)
 
 from fastapi import FastAPI, Depends, HTTPException, Query, Path as FPath, Request
 from sqlalchemy import text as sa_text
@@ -791,11 +798,13 @@ def _build_flow_prompt(step: ModuleFlowStep, subject: Any, user: User) -> str:
 def session_to_dict(s: ChatSession) -> Dict[str, Any]:
     flow_step = s.flow_step or 0
     flow_next_button: Optional[str] = None
+    flow_next_response: Optional[str] = None
     if s.module:
         next_order = flow_step + 1
         for fs in (s.module.flow_steps or []):
             if fs.step_order == next_order:
                 flow_next_button = fs.button_label
+                flow_next_response = fs.button_response
                 break
 
     return {
@@ -812,6 +821,7 @@ def session_to_dict(s: ChatSession) -> Dict[str, Any]:
         "module_type": s.module.module_type if s.module else "free",
         "flow_step": flow_step,
         "flow_next_button": flow_next_button,
+        "flow_next_response": flow_next_response,
         "created_at": s.created_at.isoformat() if s.created_at else None,
         "updated_at": s.updated_at.isoformat() if s.updated_at else None,
         "messages": [
@@ -900,7 +910,7 @@ def create_session(
     s = ChatSession(id=cid, user_id=user.id, module_id=module.id, child_id=payload.child_id, title="Nova conversa")
     db.add(s)
     db.commit()
-    s.updated_at = datetime.now(timezone.utc)
+    s.updated_at = _now()
     db.commit()
     return {
         "id": cid,
@@ -965,7 +975,7 @@ def update_session(
         raise HTTPException(status_code=404, detail="Sessão não encontrada.")
     if payload.title is not None:
         s.title = (payload.title or "").strip() or "Conversa"
-        s.updated_at = datetime.now(timezone.utc)
+        s.updated_at = _now()
     db.commit()
     return {"status": "ok", "id": cid, "title": s.title}
 
@@ -1027,14 +1037,30 @@ def flow_advance(
     subject = s.child if s.child_id and s.child else user
     prompt = _build_flow_prompt(step, subject, user)
 
+    now = _now()
+    # 1. Bubble visível do assistente (label do botão que o usuário viu)
+    if step.button_label:
+        db.add(Message(
+            session_id=s.id, role="assistant",
+            content=step.button_label, hidden=False,
+            ts=now,
+        ))
+    # 2. Bubble visível do usuário (resposta configurada ou o próprio label)
+    visible_response = (step.button_response or step.button_label or "").strip()
+    if visible_response:
+        db.add(Message(
+            session_id=s.id, role="user",
+            content=visible_response, hidden=False,
+            ts=now + timedelta(milliseconds=1),
+        ))
+    # 3. Prompt real enviado ao agente (sempre oculto da UI)
     db.add(Message(
-        session_id=s.id,
-        role="user",
-        content=prompt,
-        hidden=bool(step.is_hidden),
+        session_id=s.id, role="user",
+        content=prompt, hidden=True,
+        ts=now + timedelta(milliseconds=2),
     ))
     s.flow_step = next_order
-    s.updated_at = datetime.now(timezone.utc)
+    s.updated_at = _now()
     db.commit()
 
     next_next = (
@@ -1109,7 +1135,7 @@ def send_opening(
 
     _ = s.module  # já carregado
     db.add(Message(session_id=s.id, role="user", content=prompt, hidden=True))
-    s.updated_at = datetime.now(timezone.utc)
+    s.updated_at = _now()
     db.commit()
     return {"status": "ok"}
 
@@ -1353,7 +1379,7 @@ def create_message(
         coin_type=coin_type_used,
         description=f"Débito por mensagem — sessão {s.id[:8]}",
     ))
-    s.updated_at = datetime.now(timezone.utc)
+    s.updated_at = _now()
     db.commit()
 
     return {
@@ -1384,11 +1410,21 @@ async def stream(
     if not s:
         raise HTTPException(status_code=404, detail="Sessão não encontrada.")
 
-    # Resolve system prompt pelo módulo da sessão; fallback para DEFAULT_SYSTEM
+    # Resolve system prompt: step_system_prompt do passo ativo > módulo > default
+    system_prompt = DEFAULT_SYSTEM
     if s.module and s.module.system_prompt:
         system_prompt = s.module.system_prompt
-    else:
-        system_prompt = DEFAULT_SYSTEM
+    if s.flow_step and s.flow_step > 0 and s.module_id:
+        active_step = (
+            db.query(ModuleFlowStep)
+            .filter(
+                ModuleFlowStep.module_id == s.module_id,
+                ModuleFlowStep.step_order == s.flow_step,
+            )
+            .first()
+        )
+        if active_step and active_step.step_system_prompt:
+            system_prompt = active_step.step_system_prompt
 
     msgs: List[Any] = [SystemMessage(content=system_prompt)]
 
@@ -1446,7 +1482,7 @@ async def stream(
                             if not s2.title or s2.title in ("Nova conversa", "Conversa"):
                                 first_line = final_text.strip().split("\n", 1)[0]
                                 s2.title = (first_line[:48] + "…") if len(first_line) > 48 else (first_line or "Conversa")
-                            s2.updated_at = datetime.now(timezone.utc)
+                            s2.updated_at = _now()
                             db.commit()
 
                     yield {"event": "done", "data": '{"finish_reason":"stop"}'}

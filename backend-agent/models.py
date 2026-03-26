@@ -1,5 +1,13 @@
 
 from datetime import datetime, timezone
+import pytz
+
+_BRASILIA = pytz.timezone('America/Sao_Paulo')
+
+def _now_br():
+    """Data/hora atual no fuso horário de Brasília (naive, para MySQL)."""
+    return datetime.now(_BRASILIA).replace(tzinfo=None)
+
 from sqlalchemy import (
     Column, Integer, String, DateTime, UniqueConstraint,
     ForeignKey, Enum, Text, Index, Date, Boolean, Numeric
@@ -29,8 +37,8 @@ class User(Base):
     coins_silver = Column(Numeric(12, 7), nullable=False, default=0)
     coins_bronze = Column(Numeric(12, 7), nullable=False, default=0)
 
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(DateTime, default=_now_br, nullable=False)
+    updated_at = Column(DateTime, default=_now_br, onupdate=_now_br, nullable=False)
     last_login_at = Column(DateTime, nullable=True)
 
     chat_sessions   = relationship("ChatSession", back_populates="user", cascade="all, delete")
@@ -56,7 +64,7 @@ class Module(Base):
     is_active = Column(Boolean, nullable=False, default=True)
     module_type = Column(Enum('free', 'fixed'), nullable=False, default='free')
     price_brl   = Column(Numeric(10, 2), nullable=True)
-    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, nullable=False, default=_now_br)
 
     sessions     = relationship("ChatSession", back_populates="module")
     user_modules = relationship("UserModule", back_populates="module")
@@ -88,9 +96,9 @@ class ModuleFlowStep(Base):
     step_system_prompt   = Column(Text, nullable=True)   # Substitui o system_prompt do módulo neste passo
     include_user_profile = Column(Boolean, nullable=False, default=False)
     is_hidden            = Column(Boolean, nullable=False, default=True)  # Ocultar da UI
-    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc),
-                        onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, nullable=False, default=_now_br)
+    updated_at = Column(DateTime, nullable=False, default=_now_br,
+                        onupdate=_now_br)
 
     module = relationship("Module", back_populates="flow_steps")
 
@@ -104,9 +112,9 @@ class ModulePackage(Base):
     price_brl   = Column(Numeric(10, 2), nullable=False)
     description = Column(String(255), nullable=True)
     is_active   = Column(Boolean, nullable=False, default=True)
-    created_at  = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
-    updated_at  = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc),
-                         onupdate=lambda: datetime.now(timezone.utc))
+    created_at  = Column(DateTime, nullable=False, default=_now_br)
+    updated_at  = Column(DateTime, nullable=False, default=_now_br,
+                         onupdate=_now_br)
 
 
 # --- User Module (módulo fixo adquirido) ---
@@ -118,7 +126,7 @@ class UserModule(Base):
     module_id    = Column(Integer, ForeignKey("modules.id", ondelete="CASCADE"), nullable=False, index=True)
     quantity     = Column(Integer, nullable=False, default=1)
     order_id     = Column(Integer, nullable=True)
-    purchased_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    purchased_at = Column(DateTime, nullable=False, default=_now_br)
 
     user   = relationship("User",   back_populates="user_modules")
     module = relationship("Module", back_populates="user_modules")
@@ -137,7 +145,7 @@ class ModuleOrder(Base):
     price_brl      = Column(Numeric(10, 2), nullable=False)
     payment_method = Column(String(50), nullable=False)
     status         = Column(String(20), nullable=False, default='completed')
-    created_at     = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    created_at     = Column(DateTime, nullable=False, default=_now_br)
 
 
 MessageRole = Enum('user', 'assistant', 'system', name='message_role')
@@ -152,8 +160,8 @@ class ChatSession(Base):
     module_id = Column(Integer, ForeignKey("modules.id", ondelete="SET NULL"), nullable=True, index=True)
     title = Column(String(255), nullable=False, default="Nova conversa")
     flow_step = Column(Integer, nullable=False, default=0)   # passos do fluxo já executados
-    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, nullable=False, default=_now_br)
+    updated_at = Column(DateTime, nullable=False, default=_now_br)
 
     user = relationship("User", back_populates="chat_sessions")
     child = relationship("Child", back_populates="sessions")
@@ -172,7 +180,7 @@ class Message(Base):
     session_id = Column(String(64), ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False, index=True)
     role = Column(MessageRole, nullable=False)
     content = Column(Text, nullable=False)
-    ts = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    ts = Column(DateTime, nullable=False, default=_now_br)
     coin_value = Column(Numeric(12, 7), nullable=True)
     coin_type  = Column(Enum('gold', 'silver', 'bronze'), nullable=True)
     hidden     = Column(Boolean, nullable=False, default=False)  # ocultar da UI do chat
@@ -190,7 +198,7 @@ class CoinTransaction(Base):
     type        = Column(Enum('admin_credit', 'message_debit', 'chest_purchase', 'module_purchase'), nullable=False)
     coin_type   = Column(Enum('gold', 'silver', 'bronze'), nullable=True)
     description = Column(Text, nullable=True)
-    created_at  = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    created_at  = Column(DateTime, nullable=False, default=_now_br)
 
 
 class CoinChest(Base):
@@ -202,9 +210,9 @@ class CoinChest(Base):
     coin_type   = Column(String(10), nullable=False)   # 'gold' | 'silver' | 'bronze'
     price_brl   = Column(Numeric(10, 2), nullable=False)
     status      = Column(String(10), nullable=False, default='active')  # 'active' | 'inactive'
-    created_at  = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
-    updated_at  = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc),
-                         onupdate=lambda: datetime.now(timezone.utc))
+    created_at  = Column(DateTime, nullable=False, default=_now_br)
+    updated_at  = Column(DateTime, nullable=False, default=_now_br,
+                         onupdate=_now_br)
 
 
 class CoinOrder(Base):
@@ -219,7 +227,7 @@ class CoinOrder(Base):
     price_brl      = Column(Numeric(10, 2), nullable=False)
     payment_method = Column(String(50), nullable=False)
     status         = Column(String(20), nullable=False, default='completed')
-    created_at     = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    created_at     = Column(DateTime, nullable=False, default=_now_br)
 
 
 class CoinProportion(Base):
@@ -229,8 +237,8 @@ class CoinProportion(Base):
     coin_type        = Column(Enum('gold', 'silver', 'bronze'), nullable=False, unique=True)
     cost_per_message = Column(Numeric(12, 7), nullable=False)
     updated_at       = Column(DateTime, nullable=False,
-                              default=lambda: datetime.now(timezone.utc),
-                              onupdate=lambda: datetime.now(timezone.utc))
+                              default=_now_br,
+                              onupdate=_now_br)
 
 
 # --- Child (filho do cliente) ---
@@ -246,9 +254,9 @@ class Child(Base):
     birth_country  = Column(String(100), nullable=True)
     birth_state    = Column(String(100), nullable=True)
     birth_city     = Column(String(100), nullable=True)
-    created_at     = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
-    updated_at     = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc),
-                             onupdate=lambda: datetime.now(timezone.utc))
+    created_at     = Column(DateTime, nullable=False, default=_now_br)
+    updated_at     = Column(DateTime, nullable=False, default=_now_br,
+                             onupdate=_now_br)
 
     user     = relationship("User",        back_populates="children")
     sessions = relationship("ChatSession", back_populates="child")
@@ -260,5 +268,5 @@ class SiteSettings(Base):
 
     key        = Column(String(64), primary_key=True)
     value      = Column(Text, nullable=False, default="")
-    updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc),
-                        onupdate=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, nullable=False, default=_now_br,
+                        onupdate=_now_br)

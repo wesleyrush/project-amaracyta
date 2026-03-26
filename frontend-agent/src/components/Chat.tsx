@@ -18,7 +18,7 @@ import { swal } from '../utils/swal';
 
 export default function Chat(){
   const navigate = useNavigate();
-  const { cid, user, balances, costs, setBalances, siteSettings, moduleStarting, setModuleStarting } = useApp();
+  const { cid, user, balances, costs, setBalances, siteSettings, moduleStarting, setModuleStarting, sessions, setSessions, refreshBalance } = useApp();
   const noBalance = balances.gold < costs.gold && balances.silver < costs.silver && balances.bronze < costs.bronze;
 
   const [msgs, setMsgs] = useState<Message[]>([]);
@@ -398,6 +398,9 @@ export default function Chat(){
       setFlowNextButton(result.flow_next_button ?? null);
       setFlowNextResponse(result.flow_next_response ?? null);
       setFlowStep(result.flow_step ?? 0);
+      // Atualiza flow_step na lista de sessões para o botão de exclusão sumir imediatamente
+      setSessions(sessions.map(s => s.id === cid ? { ...s, flow_step: result.flow_step ?? 1 } : s));
+      refreshBalance().catch(() => {});
       setStreaming(true);
     } catch {
       setThinking(false);
