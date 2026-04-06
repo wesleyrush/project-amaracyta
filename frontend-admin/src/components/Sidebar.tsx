@@ -122,7 +122,7 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
     <aside className={`sidebar${collapsed ? ' collapsed' : ''}`}>
       <div className="sidebar-brand">
         {!collapsed && <span className="sidebar-logo">✦</span>}
-        {!collapsed && <span className="sidebar-title">Amaracytã</span>}
+        {!collapsed && <span className="sidebar-title">Mahamatrix</span>}
         {!collapsed && <span className="sidebar-sub">Admin</span>}
         <button
           className="sidebar-toggle"

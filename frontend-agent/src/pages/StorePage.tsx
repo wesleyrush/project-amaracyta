@@ -141,7 +141,7 @@ function ModulesTab() {
             <div key={m.id} className={`module-store-card${buyQty > 0 ? ' module-card-selected' : ''}`}>
               {owned && (
                 <div className="module-card-owned-badge">
-                  ✓ Possui {owned.quantity} · {owned.available_qty} disponível{owned.available_qty !== 1 ? 'is' : ''}
+                  ✓ Já adquiriu {owned.quantity} · total {owned.available_qty > 1 ? 'disponíveis' : 'disponível'}: {owned.available_qty} 
                 </div>
               )}
               {m.image_svg && (
@@ -176,7 +176,7 @@ function ModulesTab() {
       {totalQty > 0 && (
         <div className="module-purchase-summary">
           <div className="module-summary-info">
-            <span><strong>{totalQty}</strong> unidade{totalQty > 1 ? 's' : ''} selecionada{totalQty > 1 ? 's' : ''}</span>
+            <span><strong>{totalQty}</strong> módulo{totalQty > 1 ? 's' : ''} selecionado{totalQty > 1 ? 's' : ''}</span>
             {currentPrice != null && (
               <span className="module-summary-price">{fmt(currentPrice)}</span>
             )}
@@ -184,12 +184,12 @@ function ModulesTab() {
 
           {nextPkg && (
             <div className="module-summary-hint">
-              💡 Adicione mais 1 unidade e pague apenas <strong>{fmt(nextPkg.price_brl)}</strong> pelas {nextPkg.quantity} juntas!
+              💡 Adicione mais 1 módulo e pague apenas <strong>{fmt(nextPkg.price_brl)}</strong> pelos {nextPkg.quantity} juntos!
             </div>
           )}
 
           <button className="store-card-btn module-buy-btn" onClick={handleBuy}>
-            Comprar {totalQty} unidade{totalQty > 1 ? 's' : ''} — {currentPrice != null ? fmt(currentPrice) : ''}
+            Ativar {totalQty} módulo{totalQty > 1 ? 's' : ''} — {currentPrice != null ? fmt(currentPrice) : ''}
           </button>
         </div>
       )}
@@ -200,7 +200,7 @@ function ModulesTab() {
           <div className="module-packages-list">
             {packages.map(p => (
               <div key={p.id} className="module-package-item">
-                <span>{p.quantity} unidade{p.quantity > 1 ? 's' : ''}</span>
+                <span>{p.quantity} módulo{p.quantity > 1 ? 's' : ''}</span>
                 <span className="pkg-price">{fmt(p.price_brl)}</span>
                 {p.description && <span className="pkg-desc">{p.description}</span>}
               </div>

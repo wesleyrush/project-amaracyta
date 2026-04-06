@@ -27,7 +27,7 @@ export default function Login() {
     <div className="auth-page">
       <div className="auth-brand">
         <AkashaLogo size={96} />
-        <h1 className="auth-brand-name">Amaracytã</h1>
+        <h1 className="auth-brand-name">Mahamatrix</h1>
       </div>
 
       <div className="auth-card">

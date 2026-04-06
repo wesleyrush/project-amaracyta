@@ -109,7 +109,7 @@ export default function Home() {
           Olá, {user?.name?.split(' ')[0]}! 👋
         </h1>
         <p style={{ margin: '4px 0 0', color: '#6b7280', fontSize: 14 }}>
-          Resumo geral da plataforma Amaracytã.
+          Resumo geral da plataforma Mahamatrix.
         </p>
       </div>
 

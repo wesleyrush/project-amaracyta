@@ -63,8 +63,8 @@ export default function LoginScreen() {
           <View style={styles.logoBox}>
             <Text style={styles.logoChar}>✦</Text>
           </View>
-          <Text style={styles.brandName}>Amaracytã</Text>
-          <Text style={styles.brandSub}>Jornada Akasha</Text>
+          <Text style={styles.brandName}>Mahamatrix</Text>
+          <Text style={styles.brandSub}></Text>
         </View>
 
         <View style={styles.card}>

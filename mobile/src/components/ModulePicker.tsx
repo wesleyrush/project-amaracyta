@@ -192,13 +192,13 @@ export default function ModulePicker({ visible, onClose, onSelected }: Props) {
                         style={styles.storeBtn}
                         onPress={() => { onClose(); navigation.navigate('Store'); }}
                       >
-                        <Text style={styles.storeBtnText}>🏪 Comprar módulos</Text>
+                        <Text style={styles.storeBtnText}>📦 Ativar módulos</Text>
                       </TouchableOpacity>
                     </>
                   ) : (
                     <>
                       <Text style={styles.emptyMsg}>
-                        Você ainda não possui módulos disponíveis. Acesse a loja para começar.
+                        Você ainda não possui módulos ativos. Ative para começar.
                       </Text>
                       <TouchableOpacity
                         style={styles.storeBtn}

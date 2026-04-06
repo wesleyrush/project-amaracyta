@@ -236,7 +236,7 @@ export default function ChatScreen() {
           <Text style={styles.menuIcon}>☰</Text>
         </TouchableOpacity>
         <Text style={styles.topbarTitle} numberOfLines={1}>
-          {session?.module_name || 'Amaracytã'}
+          {session?.module_name || 'Mahamatrix'}
         </Text>
         <CoinDisplay />
       </View>

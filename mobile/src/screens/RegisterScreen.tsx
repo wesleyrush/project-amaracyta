@@ -133,7 +133,7 @@ export default function RegisterScreen() {
           <View style={styles.logoBox}>
             <Text style={styles.logoChar}>✦</Text>
           </View>
-          <Text style={styles.brandName}>Amaracytã</Text>
+          <Text style={styles.brandName}>Mahamatrix</Text>
         </View>
 
         <View style={styles.card}>

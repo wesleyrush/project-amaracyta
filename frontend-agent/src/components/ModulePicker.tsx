@@ -182,11 +182,11 @@ export default function ModulePicker({ onSelect, onCancel, showCancel = false }:
                   <>
                     <p className="module-picker-empty-msg">
                       Você não possui mais unidades disponíveis dos módulos adquiridos.<br />
-                      Adquira mais unidades na loja para iniciar novas conexões.
+                      Ative mais unidades na loja para iniciar novas conexões.
                     </p>
                     <button className="module-picker-store-btn"
                       onClick={() => { onCancel?.(); navigate('/store'); }}>
-                      🛒 Comprar mais unidades
+                      📦 Ativar mais unidades
                     </button>
                     {children.length > 0 && (
                       <button className="module-picker-store-btn" onClick={() => setStep('person')}>

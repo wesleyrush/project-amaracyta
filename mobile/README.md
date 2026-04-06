@@ -1,4 +1,4 @@
-# Amaracytã Mobile
+# Mahamatrix Mobile
 
 React Native (Expo) mobile app for the Jornada Akasha platform.
 

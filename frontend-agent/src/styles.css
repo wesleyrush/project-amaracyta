@@ -3670,7 +3670,7 @@ body.light .amaracyta-symbol { color: #333; } /* exemplo para tema claro */
   width: 22px; height: 22px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
 }
-.module-card-img { max-height: 64px; margin: 0 auto 10px; display: flex; justify-content: center; }
+.module-card-img { max-height: 64px; margin: 6px auto 10px; display: flex; justify-content: center; }
 .module-card-img svg { max-height: 64px; }
 .module-card-name { font-size: 15px; font-weight: 700; margin: 0 0 6px; }
 .module-card-desc { font-size: 12px; color: var(--muted); margin: 0 0 10px; }
