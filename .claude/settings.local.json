@@ -42,7 +42,21 @@
       "Bash(npm install:*)",
       "Bash(npm run:*)",
       "Read(//c/Projetos/project-amaracyta-github/backend-agent/**)",
-      "Read(//c/Projetos/project-amaracyta-github/frontend-agent/src/**)"
+      "Read(//c/Projetos/project-amaracyta-github/frontend-agent/src/**)",
+      "Bash(grep -ri \"lives\\\\|vidas\\\\|life\" /c/Projetos/project-amaracyta/backend-agent/*.py)",
+      "Bash(cmd.exe /c \".venv\\\\\\\\Scripts\\\\\\\\alembic.exe upgrade head\")",
+      "Bash(cmd.exe /c \".venv\\\\\\\\Scripts\\\\\\\\alembic.exe upgrade head 2>&1\")",
+      "Bash(cmd.exe /c \"cd /d C:\\\\\\\\Projetos\\\\\\\\project-amaracyta\\\\\\\\backend-agent && .venv\\\\\\\\Scripts\\\\\\\\alembic.exe upgrade head\")",
+      "Bash(cmd.exe /c \"C:\\\\\\\\Projetos\\\\\\\\project-amaracyta\\\\\\\\backend-agent\\\\\\\\.venv\\\\\\\\Scripts\\\\\\\\alembic.exe -c C:\\\\\\\\Projetos\\\\\\\\project-amaracyta\\\\\\\\backend-agent\\\\\\\\alembic.ini upgrade head\")",
+      "Bash(powershell.exe -Command \"Set-Location 'C:\\\\\\\\Projetos\\\\\\\\project-amaracyta\\\\\\\\backend-agent'; & '.venv\\\\\\\\Scripts\\\\\\\\alembic.exe' upgrade head\")",
+      "Bash(powershell.exe -NoProfile -Command 'cd '\\\\''C:\\\\Projetos\\\\project-amaracyta\\\\backend-agent'\\\\''; $env:PATH = '\\\\''C:\\\\Projetos\\\\project-amaracyta\\\\backend-agent\\\\.venv\\\\Scripts;'\\\\'' + $env:PATH; alembic upgrade head')",
+      "Bash(powershell.exe -NoProfile -Command \"cd 'C:\\\\Projetos\\\\project-amaracyta\\\\backend-agent'; C:\\\\Projetos\\\\project-amaracyta\\\\backend-agent\\\\.venv\\\\Scripts\\\\python.exe -c 'import alembic; print\\(alembic.__version__\\)'\")",
+      "Bash(powershell.exe -NoProfile -Command \"cd 'C:\\\\Projetos\\\\project-amaracyta\\\\backend-agent'; C:\\\\Projetos\\\\project-amaracyta\\\\backend-agent\\\\.venv\\\\Scripts\\\\python.exe -m alembic upgrade head\")",
+      "Bash(powershell.exe -NoProfile -Command \"cd 'C:\\\\Projetos\\\\project-amaracyta\\\\backend-agent'; C:\\\\Projetos\\\\project-amaracyta\\\\backend-agent\\\\.venv\\\\Scripts\\\\python.exe -c 'from alembic.config import Config; from alembic import command; cfg = Config\\(\\\\\"alembic.ini\\\\\"\\); command.upgrade\\(cfg, \\\\\"head\\\\\"\\)'\")",
+      "Bash(powershell.exe -NoProfile -Command \"cd 'C:\\\\Projetos\\\\project-amaracyta\\\\backend-agent'; C:\\\\Projetos\\\\project-amaracyta\\\\backend-agent\\\\.venv\\\\Scripts\\\\python.exe -c 'import alembic; print\\(dir\\(alembic\\)\\)'\")",
+      "Bash(powershell.exe -NoProfile -Command \"cd 'C:\\\\Projetos\\\\project-amaracyta\\\\backend-agent'; C:\\\\Projetos\\\\project-amaracyta\\\\backend-agent\\\\.venv\\\\Scripts\\\\python.exe create_user_lives.py\")",
+      "Bash(powershell.exe -NoProfile -Command \"cd 'C:\\\\Projetos\\\\project-amaracyta\\\\backend-agent'; C:\\\\Projetos\\\\project-amaracyta\\\\backend-agent\\\\.venv\\\\Scripts\\\\python.exe migrate_life_category.py\")",
+      "Bash(pip show:*)"
     ]
   }
 }

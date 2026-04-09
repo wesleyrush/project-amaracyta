@@ -2,12 +2,6 @@
 import { useEffect, useState } from 'react';
 import { getProfile, putProfile } from '../api/auth';
 import { swal } from '../utils/swal';
-import { useTheme } from '../hooks/useTheme';
-import type { Theme } from '../hooks/useTheme';
-
-const THEME_LABELS: Record<Theme, string> = { system: 'Padrão do sistema', dark: 'Escuro', light: 'Claro' };
-const THEME_ICONS:  Record<Theme, string> = { system: '🖥', dark: '🌙', light: '☀️' };
-
 const BR_STATES = [
   'AC','AL','AP','AM','BA','CE','DF','ES','GO','MA',
   'MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN',
@@ -15,7 +9,6 @@ const BR_STATES = [
 ];
 
 export default function ProfileDataPage() {
-  const { theme, setTheme } = useTheme();
   const [fullName,      setFullName]      = useState('');
   const [iniciaticName, setIniciaticName] = useState('');
   const [birth,         setBirth]         = useState('');
@@ -194,27 +187,6 @@ export default function ProfileDataPage() {
         </form>
       </section>
 
-      <section className="profile-card">
-        <div className="profile-card-head">
-          <span className="profile-card-icon">🎨</span>
-          <div>
-            <h2 className="profile-card-title">Aparência</h2>
-            <p className="profile-card-sub">Escolha o tema da interface</p>
-          </div>
-        </div>
-        <div className="theme-selector-row">
-          {(['light', 'dark', 'system'] as Theme[]).map(t => (
-            <button
-              key={t}
-              className={`theme-option-btn${theme === t ? ' active' : ''}`}
-              onClick={() => setTheme(t)}
-            >
-              <span className="theme-option-icon">{THEME_ICONS[t]}</span>
-              <span className="theme-option-label">{THEME_LABELS[t]}</span>
-            </button>
-          ))}
-        </div>
-      </section>
     </div>
   );
 }

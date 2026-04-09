@@ -5,17 +5,25 @@ const { requireAuth, requirePermission } = require('../middleware/auth');
 // GET /api/modules — lista todos os módulos
 router.get('/', requireAuth, async (req, res) => {
   const [rows] = await db.query(
-    `SELECT id, slug, name, description, image_svg, system_prompt,
-            opening_prompt, few_shot, welcome_message, use_opening_prompt, show_opening_prompt,
-            is_active, module_type, price_brl, created_at
-     FROM modules ORDER BY id DESC`
+    `SELECT m.id, m.slug, m.name, m.description, m.image_svg, m.system_prompt,
+            m.opening_prompt, m.few_shot, m.welcome_message, m.use_opening_prompt, m.show_opening_prompt,
+            m.is_active, m.module_type, m.price_brl, m.level_id, m.life_category, m.created_at,
+            ml.name AS level_name, ml.slug AS level_slug, ml.price_brl AS level_price_brl
+     FROM modules m
+     LEFT JOIN module_levels ml ON ml.id = m.level_id
+     ORDER BY m.id DESC`
   );
   res.json({ items: rows });
 });
 
 // GET /api/modules/:id — detalhe de um módulo
 router.get('/:id', requireAuth, async (req, res) => {
-  const [rows] = await db.query('SELECT * FROM modules WHERE id = ?', [req.params.id]);
+  const [rows] = await db.query(
+    `SELECT m.*, ml.name AS level_name, ml.slug AS level_slug, ml.price_brl AS level_price_brl
+     FROM modules m LEFT JOIN module_levels ml ON ml.id = m.level_id
+     WHERE m.id = ?`,
+    [req.params.id]
+  );
   if (!rows.length) return res.status(404).json({ error: 'Módulo não encontrado' });
   res.json(rows[0]);
 });
@@ -24,7 +32,7 @@ router.get('/:id', requireAuth, async (req, res) => {
 router.post('/', requireAuth, requirePermission('agente', 'insert'), async (req, res) => {
   const { slug, name, description, image_svg, system_prompt,
           opening_prompt, few_shot, welcome_message, use_opening_prompt, show_opening_prompt,
-          module_type, price_brl } = req.body;
+          module_type, level_id, life_category } = req.body;
   if (!slug || !name || !system_prompt)
     return res.status(400).json({ error: 'slug, name e system_prompt são obrigatórios' });
 
@@ -33,15 +41,16 @@ router.post('/', requireAuth, requirePermission('agente', 'insert'), async (req,
       `INSERT INTO modules
          (slug, name, description, image_svg, system_prompt,
           opening_prompt, few_shot, welcome_message, use_opening_prompt, show_opening_prompt,
-          module_type, price_brl)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+          module_type, level_id, life_category)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         slug, name, description || null, image_svg || null, system_prompt,
         opening_prompt || null, few_shot || null, welcome_message || null,
         use_opening_prompt ? 1 : 0,
         show_opening_prompt ? 1 : 0,
         module_type || 'free',
-        (module_type === 'fixed' && price_brl) ? price_brl : null,
+        (module_type === 'fixed' && level_id) ? level_id : null,
+        life_category || null,
       ]
     );
     res.status(201).json({ id: result.insertId });
@@ -57,7 +66,7 @@ router.post('/', requireAuth, requirePermission('agente', 'insert'), async (req,
 router.put('/:id', requireAuth, requirePermission('agente', 'update'), async (req, res) => {
   const { slug, name, description, image_svg, system_prompt,
           opening_prompt, few_shot, welcome_message, use_opening_prompt, show_opening_prompt,
-          module_type, price_brl } = req.body;
+          module_type, level_id, life_category } = req.body;
   if (!slug || !name || !system_prompt)
     return res.status(400).json({ error: 'slug, name e system_prompt são obrigatórios' });
 
@@ -66,7 +75,7 @@ router.put('/:id', requireAuth, requirePermission('agente', 'update'), async (re
       `UPDATE modules
        SET slug=?, name=?, description=?, image_svg=?, system_prompt=?,
            opening_prompt=?, few_shot=?, welcome_message=?, use_opening_prompt=?, show_opening_prompt=?,
-           module_type=?, price_brl=?
+           module_type=?, level_id=?, life_category=?
        WHERE id=?`,
       [
         slug, name, description || null, image_svg || null, system_prompt,
@@ -74,7 +83,8 @@ router.put('/:id', requireAuth, requirePermission('agente', 'update'), async (re
         use_opening_prompt ? 1 : 0,
         show_opening_prompt ? 1 : 0,
         module_type || 'free',
-        (module_type === 'fixed' && price_brl) ? price_brl : null,
+        (module_type === 'fixed' && level_id) ? level_id : null,
+        life_category || null,
         req.params.id,
       ]
     );

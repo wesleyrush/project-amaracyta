@@ -79,7 +79,7 @@ export default function PurchaseSuccessPage() {
               Iniciar conversa
             </button>
             <button className="success-btn-secondary" onClick={() => navigate('/store')}>
-              Voltar à loja
+              Voltar à lista
             </button>
           </div>
         </div>

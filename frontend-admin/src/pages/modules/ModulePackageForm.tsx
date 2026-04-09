@@ -2,36 +2,41 @@ import { FormEvent, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import { swal } from '../../utils/swal';
+import { listModuleLevels } from '../../api/modules';
 import api from '../../api/client';
-import type { ModulePackage } from '../../types';
+import type { ModuleLevel, ModulePackage } from '../../types';
 
 const getPackage  = (id: number) => api.get<ModulePackage>(`/module-packages/${id}`).then(r => r.data);
 const createPkg   = (data: object) => api.post('/module-packages', data).then(r => r.data);
 const updatePkg   = (id: number, data: object) => api.put(`/module-packages/${id}`, data).then(r => r.data);
 
 interface FormState {
+  level_id: string;
   quantity: string;
   price_brl: string;
   description: string;
   is_active: boolean;
 }
 
-const empty: FormState = { quantity: '', price_brl: '', description: '', is_active: true };
+const empty: FormState = { level_id: '', quantity: '', price_brl: '', description: '', is_active: true };
 
 export default function ModulePackageForm() {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
 
-  const [form, setForm]     = useState<FormState>(empty);
+  const [form, setForm]       = useState<FormState>(empty);
+  const [levels, setLevels]   = useState<ModuleLevel[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving,  setSaving]  = useState(false);
 
   useEffect(() => {
+    listModuleLevels().then(setLevels).catch(() => {});
     if (!isEdit) return;
     setLoading(true);
     getPackage(Number(id))
       .then(p => setForm({
+        level_id:    p.level_id != null ? String(p.level_id) : '',
         quantity:    String(p.quantity),
         price_brl:   String(p.price_brl),
         description: p.description ?? '',
@@ -40,7 +45,7 @@ export default function ModulePackageForm() {
       .finally(() => setLoading(false));
   }, [id, isEdit]);
 
-  const set = (k: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
+  const set = (k: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(prev => ({ ...prev, [k]: e.target.value }));
 
   const handleSubmit = async (e: FormEvent) => {
@@ -48,6 +53,7 @@ export default function ModulePackageForm() {
     setSaving(true);
     try {
       const payload = {
+        level_id:    form.level_id ? Number(form.level_id) : null,
         quantity:    Number(form.quantity),
         price_brl:   parseFloat(form.price_brl),
         description: form.description || null,
@@ -77,9 +83,20 @@ export default function ModulePackageForm() {
         </div>
         <div className="card-body">
           <p style={{ marginBottom: 16, color: '#6b7280', fontSize: 14 }}>
-            Defina um preço diferenciado para quando o cliente comprar N módulos fixos juntos.
+            Defina um preço diferenciado para quando o cliente comprar N módulos de um determinado nível juntos.
           </p>
           <form onSubmit={handleSubmit} className="admin-form">
+            <div className="form-group">
+              <label>Nível <span className="req">*</span></label>
+              <select value={form.level_id} onChange={set('level_id')} required>
+                <option value="">Selecione o nível...</option>
+                {levels.map(l => (
+                  <option key={l.id} value={l.id}>{l.name} — {Number(l.price_brl).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} / unidade</option>
+                ))}
+              </select>
+              <small>O desconto do pacote aplica-se apenas a módulos deste nível.</small>
+            </div>
+
             <div className="form-row">
               <div className="form-group">
                 <label>Quantidade de Módulos <span className="req">*</span></label>
@@ -92,7 +109,7 @@ export default function ModulePackageForm() {
                   placeholder="Ex: 2"
                   required
                 />
-                <small>Número de módulos comprados juntos para aplicar esse preço.</small>
+                <small>Número de módulos deste nível para aplicar o preço especial.</small>
               </div>
               <div className="form-group">
                 <label>Preço do Pacote (R$) <span className="req">*</span></label>

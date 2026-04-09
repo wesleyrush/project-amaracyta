@@ -18,7 +18,7 @@ import { swal } from '../utils/swal';
 
 export default function Chat(){
   const navigate = useNavigate();
-  const { cid, user, balances, costs, setBalances, siteSettings, moduleStarting, setModuleStarting, sessions, setSessions, refreshBalance } = useApp();
+  const { cid, user, balances, costs, setBalances, siteSettings, moduleStarting, setModuleStarting, sessions, setSessions, refreshBalance, setShowModulePicker } = useApp();
   const noBalance = balances.gold < costs.gold && balances.silver < costs.silver && balances.bronze < costs.bronze;
 
   const [msgs, setMsgs] = useState<Message[]>([]);
@@ -426,10 +426,12 @@ export default function Chat(){
             Aqui começa a sua jornada. Cada conexão é uma porta para um novo
             nível de consciência e autoconhecimento.
           </p>
-          <p className="chat-empty-hint">
-            Clique em <strong>+ Nova conexão</strong> na barra lateral para
-            escolher um módulo e iniciar sua experiência.
-          </p>
+          <button
+            className="chat-empty-cta"
+            onClick={() => setShowModulePicker(true)}
+          >
+            ✦ Clique aqui para iniciar um novo módulo
+          </button>
         </div>
       </section>
     );

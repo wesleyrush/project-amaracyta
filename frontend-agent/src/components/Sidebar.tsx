@@ -103,7 +103,7 @@ export default function Sidebar({ onToggle }: { onToggle: () => void }) {
         <header className="side-header">
           <div className="side-header-left">
             <div className="brand" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <strong style={{ display: 'block', margin: '0 0 0 56px', fontSize: 16 }}>Suas conexões</strong>
+              <strong style={{ display: 'block', margin: '0 0 0 56px', fontSize: 16 }}>Módulos iniciados</strong>
             </div>
           </div>
           <div className="side-header-actions">
@@ -112,8 +112,8 @@ export default function Sidebar({ onToggle }: { onToggle: () => void }) {
         </header>
 
         <div className="side-actions">
-          <button id="newConvBtn" className="btn new-conv" style={{ fontSize: 14, width: '100%' }} onClick={newConversation}>
-            + Nova conexão
+          <button id="newConvBtn" className="btn new-conv" onClick={newConversation}>
+            ✦ Clique aqui para iniciar um novo módulo
           </button>
         </div>
 
@@ -139,7 +139,7 @@ export default function Sidebar({ onToggle }: { onToggle: () => void }) {
                     >
                       <div className="conv-title">
                         <span className="conv-person-name">
-                          👤 {personName}
+                          <span className="conv-person-icon">👤</span> {personName}
                         </span>
                         <span className="conv-module-date">
                           Módulo: {it.module_name || '—'}

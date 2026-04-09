@@ -82,10 +82,19 @@ export default function ModuleList() {
       ),
     },
     {
-      key: 'price_brl', label: 'Preço (R$)', sortable: true,
-      render: row => row.module_type === 'fixed' && row.price_brl != null
-        ? Number(row.price_brl).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-        : '—',
+      key: 'level_name', label: 'Nível', sortable: true,
+      render: row => row.level_name
+        ? <strong>{String(row.level_name)}</strong>
+        : <em style={{ color: '#9ca3af' }}>—</em>,
+    },
+    {
+      key: 'level_price_brl', label: 'Preço (R$)', sortable: true,
+      render: row => {
+        const price = (row.level_price_brl ?? row.price_brl) as number | null;
+        return row.module_type === 'fixed' && price != null
+          ? Number(price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+          : '—';
+      },
     },
     {
       key: 'description', label: 'Descrição', sortable: false,

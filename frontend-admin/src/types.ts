@@ -77,6 +77,17 @@ export interface AdminUser {
   permissions: Permission[];
 }
 
+export interface ModuleLevel {
+  id: number;
+  slug: string;
+  name: string;
+  description: string | null;
+  price_brl: number;
+  is_active: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Module {
   id: number;
   slug: string;
@@ -91,7 +102,12 @@ export interface Module {
   show_opening_prompt: boolean;
   is_active: number;
   module_type: 'free' | 'fixed';
+  level_id: number | null;
+  level_name: string | null;
+  level_slug: string | null;
+  level_price_brl: number | null;
   price_brl: number | null;
+  life_category: string | null;
   created_at: string;
 }
 
@@ -112,6 +128,8 @@ export interface ModuleFlowStep {
 
 export interface ModulePackage {
   id: number;
+  level_id: number | null;
+  level_name: string | null;
   quantity: number;
   price_brl: number;
   description: string | null;

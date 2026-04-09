@@ -73,6 +73,7 @@ const NAV = [
     label: 'Módulos', icon: <IconBot />, resource: 'agente', children: [
       { label: 'Incluir Módulo',    path: '/modulos/novo',     perm: { resource: 'agente', action: 'insert' } },
       { label: 'Listar Módulos',    path: '/modulos' },
+      { label: 'Níveis de Módulos', path: '/modulos/niveis' },
       { label: 'Pacotes de Módulos', path: '/modulos/pacotes' },
     ],
   },

@@ -1,10 +1,10 @@
 import { FormEvent, useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import Layout from '../../components/Layout';
-import { createModule, getModule, updateModule, listFlowSteps, createFlowStep, updateFlowStep, deleteFlowStep } from '../../api/modules';
+import { createModule, getModule, updateModule, listFlowSteps, createFlowStep, updateFlowStep, deleteFlowStep, listModuleLevels } from '../../api/modules';
 import { swal } from '../../utils/swal';
 import { useAuth } from '../../context/AuthContext';
-import type { ModuleFlowStep } from '../../types';
+import type { ModuleFlowStep, ModuleLevel } from '../../types';
 
 interface FormState {
   slug: string;
@@ -18,8 +18,20 @@ interface FormState {
   welcome_message: string;
   few_shot: string;
   module_type: 'free' | 'fixed';
-  price_brl: string;
+  level_id: string;
+  life_category: string;
 }
+
+const LIFE_CATEGORY_OPTIONS = [
+  { value: '',          label: '— Nenhuma (não gera vidas fora de Gaia) —' },
+  { value: 'eu_sou',    label: '✦ EU SOU — usa vidas fora de Gaia já salvas (escolha livre do agente)' },
+  { value: 'lyra',      label: 'Lyra (Lyriano) — gera 3 vidas em Lyra' },
+  { value: 'pleiades',  label: 'Plêiades (Pleidiano) — gera 3 vidas nas Plêiades' },
+  { value: 'sirius',    label: 'Sírius (Siriano) — gera 3 vidas em Sírius' },
+  { value: 'orion',     label: 'Órion — gera 3 vidas em Órion' },
+  { value: 'arcturus',  label: 'Arcturus (Arcturianos) — gera 3 vidas em Arcturus' },
+  { value: 'andromeda', label: 'Andrômeda (Andromedano) — gera 3 vidas em Andrômeda' },
+];
 
 const empty: FormState = {
   slug: '',
@@ -33,7 +45,8 @@ const empty: FormState = {
   welcome_message: '',
   few_shot: '',
   module_type: 'free',
-  price_brl: '',
+  level_id: '',
+  life_category: '',
 };
 
 // ─── Flow Step Modal ─────────────────────────────────────────────────────────
@@ -159,6 +172,7 @@ export default function ModuleForm() {
   const cloneState = location.state as { cloneFrom?: import('../../types').Module; flowSteps?: ModuleFlowStep[] } | null;
 
   const [form, setForm] = useState<FormState>(empty);
+  const [levels,    setLevels]    = useState<ModuleLevel[]>([]);
   const [loading,   setLoading]   = useState(false);
   const [saving,    setSaving]    = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -172,6 +186,10 @@ export default function ModuleForm() {
     if (!id) return;
     listFlowSteps(Number(id)).then(setFlowSteps).catch(() => {});
   }, [id]);
+
+  useEffect(() => {
+    listModuleLevels().then(setLevels).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!isEdit) {
@@ -189,7 +207,8 @@ export default function ModuleForm() {
           welcome_message: m.welcome_message ?? '',
           few_shot: m.few_shot ?? '',
           module_type: m.module_type ?? 'free',
-          price_brl: m.price_brl != null ? String(m.price_brl) : '',
+          level_id: m.level_id != null ? String(m.level_id) : '',
+          life_category: m.life_category ?? '',
         });
       }
       return;
@@ -208,7 +227,8 @@ export default function ModuleForm() {
         welcome_message: m.welcome_message ?? '',
         few_shot: m.few_shot ?? '',
         module_type: m.module_type ?? 'free',
-        price_brl: m.price_brl != null ? String(m.price_brl) : '',
+        level_id: m.level_id != null ? String(m.level_id) : '',
+        life_category: m.life_category ?? '',
       }))
       .finally(() => setLoading(false));
     loadFlowSteps();
@@ -240,7 +260,11 @@ export default function ModuleForm() {
     e.preventDefault();
     setSaving(true);
     try {
-      const payload = { ...form, price_brl: Number(form.price_brl) };
+      const payload = {
+        ...form,
+        level_id: form.level_id ? Number(form.level_id) : null,
+        life_category: form.life_category || null,
+      };
       if (isEdit) {
         await updateModule(Number(id), payload);
       } else {
@@ -359,19 +383,39 @@ export default function ModuleForm() {
 
             {form.module_type === 'fixed' && (
               <div className="form-group">
-                <label>Preço Individual (R$) <span className="req">*</span></label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.price_brl}
-                  onChange={set('price_brl')}
-                  placeholder="Ex: 7.77"
+                <label>Nível do Módulo <span className="req">*</span></label>
+                <select
+                  value={form.level_id}
+                  onChange={e => setForm(prev => ({ ...prev, level_id: e.target.value }))}
                   required={form.module_type === 'fixed'}
-                />
-                <small>Preço unitário do módulo. Pode ser sobrescrito por pacotes de quantidade.</small>
+                >
+                  <option value="">Selecione um nível...</option>
+                  {levels.filter(l => l.is_active).map(l => (
+                    <option key={l.id} value={l.id}>
+                      {l.name} — R$ {Number(l.price_brl).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </option>
+                  ))}
+                </select>
+                <small>O preço do módulo é definido pelo nível. Gerencie os níveis em <strong>Módulos → Níveis</strong>.</small>
               </div>
             )}
+
+            <div className="form-group">
+              <label>Categoria de Vida Fora de Gaia</label>
+              <select
+                value={form.life_category}
+                onChange={e => setForm(prev => ({ ...prev, life_category: e.target.value }))}
+              >
+                {LIFE_CATEGORY_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+              <small>
+                Define qual localização fora de Gaia este módulo gera e persiste (3 vidas).
+                Usado para garantir consistência entre módulos do mesmo usuário.
+                O módulo avançado futuro usará 1 vida de cada localização.
+              </small>
+            </div>
 
             <div className="form-group">
               <label>Descrição</label>

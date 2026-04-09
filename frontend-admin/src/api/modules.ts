@@ -1,5 +1,24 @@
 import api from './client';
-import type { Module, ModuleFlowStep } from '../types';
+import type { Module, ModuleFlowStep, ModuleLevel } from '../types';
+
+// Module Levels
+export const listModuleLevels = () =>
+  api.get<{ items: ModuleLevel[] }>('/module-levels').then(r => r.data.items);
+
+export const getModuleLevel = (id: number) =>
+  api.get<ModuleLevel>(`/module-levels/${id}`).then(r => r.data);
+
+export const createModuleLevel = (data: Omit<ModuleLevel, 'id' | 'created_at' | 'updated_at'>) =>
+  api.post<ModuleLevel>('/module-levels', data).then(r => r.data);
+
+export const updateModuleLevel = (id: number, data: Omit<ModuleLevel, 'id' | 'created_at' | 'updated_at'>) =>
+  api.put<ModuleLevel>(`/module-levels/${id}`, data).then(r => r.data);
+
+export const toggleModuleLevel = (id: number) =>
+  api.patch(`/module-levels/${id}/toggle`).then(r => r.data);
+
+export const deleteModuleLevel = (id: number) =>
+  api.delete(`/module-levels/${id}`).then(r => r.data);
 
 export const listModules = () =>
   api.get<{ items: Module[] }>('/modules').then(r => r.data.items);

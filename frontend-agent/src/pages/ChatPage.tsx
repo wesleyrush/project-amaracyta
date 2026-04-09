@@ -12,7 +12,7 @@ import type { Module } from '../types';
 
 export default function ChatPage(){
   const isDesktop = useMediaQuery("(min-width: 961px)");
-  const { showModulePicker, setShowModulePicker, moduleStarting, setModuleStarting, setCid, setSessions, user, lastCidKey, refreshUserModules, siteSettings } = useApp();
+  const { showModulePicker, setShowModulePicker, moduleStarting, setModuleStarting, setCid, setSessions, refreshUserModules, siteSettings } = useApp();
 
   const [isCollapsed, setCollapsed]   = useState(false);
   const [isOpenMobile, setOpenMobile] = useState(false);
@@ -49,7 +49,6 @@ export default function ChatPage(){
     setModuleStarting(true);
     const { id } = await createSession(module.id, childId);
     setCid(id);
-    if (user) localStorage.setItem(lastCidKey(String(user.id)), id);
     const list = await listSessions();
     setSessions(list.items || []);
     refreshUserModules().catch(() => {});

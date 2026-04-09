@@ -1,8 +1,10 @@
 
 import { apiGet, apiWrite } from './client';
-import type { Module, ModulePackage, ModulePurchaseResult, UserModule } from '../types';
+import type { Module, ModuleLevel, ModulePackage, ModulePurchaseResult, UserModule } from '../types';
 
 export const listModules = () => apiGet<{ items: Module[] }>('/modules');
+
+export const listModuleLevels = () => apiGet<{ items: ModuleLevel[] }>('/module-levels');
 
 export const listModulePackages = () => apiGet<{ items: ModulePackage[] }>('/module-packages');
 

@@ -6,6 +6,7 @@ import AkashaLogo from './AkashaLogo';
 import { listModules } from '../api/modules';
 import type { Module } from '../types';
 import { doLogout } from '../api/auth';
+import { useTheme } from '../hooks/useTheme';
 
 function initialsFromName(name?: string | null) {
   const t = (name || '').trim();
@@ -43,6 +44,9 @@ export default function Topbar({ forceDefault, sidebarCollapsed }: TopbarProps) 
     document.addEventListener('click', onDoc);
     return () => document.removeEventListener('click', onDoc);
   }, []);
+
+  const { theme, setTheme } = useTheme();
+  const isDark = theme === 'dark';
 
   const allZero = balances.gold === 0 && balances.silver === 0 && balances.bronze === 0;
   const totalAvailableModules = userModules.reduce((sum, m) => sum + m.available_qty, 0);
@@ -111,6 +115,23 @@ export default function Topbar({ forceDefault, sidebarCollapsed }: TopbarProps) 
               </>
             )}
           </div>}
+
+          {/* Toggle de tema */}
+          <button
+            className={`theme-toggle-switch ${isDark ? 'theme-toggle-switch--dark' : 'theme-toggle-switch--light'}`}
+            onClick={() => setTheme(isDark ? 'light' : 'dark')}
+            title={isDark ? 'Mudar para tema claro' : 'Mudar para tema escuro'}
+            aria-label="Alternar tema"
+          >
+            <span className="theme-toggle-track">
+              <span className="theme-toggle-thumb">
+                <span className={isDark ? 'theme-toggle-icon--dark' : undefined}>{isDark ? '🌙' : '☀️'}</span>
+              </span>
+              <span className="theme-toggle-label">
+                {isDark ? 'Escuro' : 'Claro'}
+              </span>
+            </span>
+          </button>
 
           {/* Módulos disponíveis */}
           {userModules.length > 0 && (

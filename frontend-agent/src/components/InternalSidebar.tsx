@@ -1,11 +1,13 @@
 // src/components/InternalSidebar.tsx
 import { NavLink } from 'react-router-dom';
+import { useApp } from '../context/AppContext';
 
 interface Props {
   onToggle: () => void;
 }
 
 export default function InternalSidebar({ onToggle }: Props) {
+  const { setCid } = useApp();
   return (
     <aside className="sidebar" id="sidebar">
       <header className="side-header">
@@ -18,7 +20,7 @@ export default function InternalSidebar({ onToggle }: Props) {
       </header>
 
       <nav className="internal-nav">
-        <NavLink to="/" className="internal-nav-item" end>
+        <NavLink to="/" className="internal-nav-item" end onClick={() => setCid(null)}>
           <span className="internal-nav-icon">💬</span>
           <span className="internal-nav-label">Voltar para as conexões</span>
         </NavLink>

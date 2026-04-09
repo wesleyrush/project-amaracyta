@@ -39,9 +39,9 @@ from sqlalchemy.orm import Session
 
 from db import Base, engine, get_db
 from models import (
-    User, ChatSession, Message, Module, CoinProportion, CoinTransaction,
+    User, ChatSession, Message, Module, ModuleLevel, CoinProportion, CoinTransaction,
     CoinChest, CoinOrder, ModulePackage, UserModule, ModuleOrder, Child, SiteSettings,
-    ModuleFlowStep,
+    ModuleFlowStep, UserLife,
 )
 from auth import router as auth_router
 from security import decode_token
@@ -358,10 +358,123 @@ def admin_delete_child(
 
 
 # ---------------------------------------------------------------------------
+# Module Levels
+# ---------------------------------------------------------------------------
+
+class LevelCreate(BaseModel):
+    slug: str
+    name: str
+    description: Optional[str] = None
+    price_brl: float
+    is_active: bool = True
+
+
+class LevelUpdate(BaseModel):
+    slug: Optional[str] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    price_brl: Optional[float] = None
+    is_active: Optional[bool] = None
+
+
+@app.get("/module-levels")
+def list_module_levels(db: Session = Depends(get_db)):
+    rows = db.query(ModuleLevel).filter(ModuleLevel.is_active == True).order_by(ModuleLevel.id).all()
+    return {"items": [_level_dict(l) for l in rows]}
+
+
+@app.get("/admin/module-levels")
+def admin_list_module_levels(
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    rows = db.query(ModuleLevel).order_by(ModuleLevel.id).all()
+    return {"items": [_level_dict(l) for l in rows]}
+
+
+@app.post("/admin/module-levels", status_code=201)
+def admin_create_module_level(
+    payload: LevelCreate,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+    _csrf: None = Depends(require_csrf_header),
+):
+    if db.query(ModuleLevel).filter(ModuleLevel.slug == payload.slug).first():
+        raise HTTPException(status_code=409, detail="Slug já cadastrado")
+    l = ModuleLevel(
+        slug=payload.slug,
+        name=payload.name,
+        description=payload.description,
+        price_brl=Decimal(str(payload.price_brl)),
+        is_active=payload.is_active,
+    )
+    db.add(l)
+    db.commit()
+    db.refresh(l)
+    return _level_dict(l)
+
+
+@app.put("/admin/module-levels/{lid}")
+def admin_update_module_level(
+    lid: int,
+    payload: LevelUpdate,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+    _csrf: None = Depends(require_csrf_header),
+):
+    l = db.get(ModuleLevel, lid)
+    if not l:
+        raise HTTPException(status_code=404, detail="Nível não encontrado")
+    if payload.slug is not None:
+        conflict = db.query(ModuleLevel).filter(ModuleLevel.slug == payload.slug, ModuleLevel.id != lid).first()
+        if conflict:
+            raise HTTPException(status_code=409, detail="Slug já cadastrado")
+        l.slug = payload.slug
+    if payload.name is not None:
+        l.name = payload.name
+    if payload.description is not None:
+        l.description = payload.description
+    if payload.price_brl is not None:
+        l.price_brl = Decimal(str(payload.price_brl))
+    if payload.is_active is not None:
+        l.is_active = payload.is_active
+    db.commit()
+    db.refresh(l)
+    return _level_dict(l)
+
+
+@app.delete("/admin/module-levels/{lid}", status_code=204)
+def admin_delete_module_level(
+    lid: int,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+    _csrf: None = Depends(require_csrf_header),
+):
+    l = db.get(ModuleLevel, lid)
+    if not l:
+        raise HTTPException(status_code=404, detail="Nível não encontrado")
+    db.delete(l)
+    db.commit()
+
+
+# ---------------------------------------------------------------------------
 # Modules
 # ---------------------------------------------------------------------------
 
+def _level_dict(l: ModuleLevel) -> Dict[str, Any]:
+    return {
+        "id": l.id,
+        "slug": l.slug,
+        "name": l.name,
+        "description": l.description,
+        "price_brl": float(l.price_brl),
+        "is_active": l.is_active,
+        "created_at": l.created_at.isoformat() if l.created_at else None,
+    }
+
+
 def _module_dict(m: Module) -> Dict[str, Any]:
+    lvl = m.level if m.level else None
     return {
         "id": m.id,
         "slug": m.slug,
@@ -375,7 +488,13 @@ def _module_dict(m: Module) -> Dict[str, Any]:
         "system_prompt": m.system_prompt,
         "is_active": m.is_active,
         "module_type": m.module_type or "free",
-        "price_brl": float(m.price_brl) if m.price_brl is not None else None,
+        "level_id": m.level_id,
+        "level_name": lvl.name if lvl else None,
+        "level_slug": lvl.slug if lvl else None,
+        "level_price_brl": float(lvl.price_brl) if lvl else None,
+        # price_brl = preço do nível (ou legado do próprio módulo)
+        "price_brl": float(lvl.price_brl) if lvl else (float(m.price_brl) if m.price_brl is not None else None),
+        "life_category": m.life_category,
     }
 
 
@@ -408,7 +527,9 @@ class ModuleCreate(BaseModel):
     use_opening_prompt: bool = False
     is_active: bool = True
     module_type: str = "free"
-    price_brl: Optional[float] = None
+    level_id: Optional[int] = None
+    price_brl: Optional[float] = None   # legado; ignorado se level_id fornecido
+    life_category: Optional[str] = None  # 'lyra'|'pleiades'|'sirius'|'orion'|'arcturus'|'andromeda'
 
 
 class ModuleUpdate(BaseModel):
@@ -421,9 +542,12 @@ class ModuleUpdate(BaseModel):
     few_shot: Optional[str] = None
     welcome_message: Optional[str] = None
     use_opening_prompt: Optional[bool] = None
+    show_opening_prompt: Optional[bool] = None
     is_active: Optional[bool] = None
     module_type: Optional[str] = None
-    price_brl: Optional[float] = None
+    level_id: Optional[int] = None
+    price_brl: Optional[float] = None   # legado
+    life_category: Optional[str] = None  # 'lyra'|'pleiades'|'sirius'|'orion'|'arcturus'|'andromeda'
 
 
 @app.get("/admin/modules")
@@ -457,7 +581,9 @@ def admin_create_module(
         use_opening_prompt=payload.use_opening_prompt,
         is_active=payload.is_active,
         module_type=payload.module_type or "free",
+        level_id=payload.level_id,
         price_brl=Decimal(str(payload.price_brl)) if payload.price_brl is not None else None,
+        life_category=payload.life_category,
     )
     db.add(m)
     db.commit()
@@ -509,12 +635,18 @@ def admin_update_module(
         m.welcome_message = payload.welcome_message
     if payload.use_opening_prompt is not None:
         m.use_opening_prompt = payload.use_opening_prompt
+    if payload.show_opening_prompt is not None:
+        m.show_opening_prompt = payload.show_opening_prompt
     if payload.is_active is not None:
         m.is_active = payload.is_active
     if payload.module_type is not None:
         m.module_type = payload.module_type
+    if payload.level_id is not None:
+        m.level_id = payload.level_id
     if payload.price_brl is not None:
         m.price_brl = Decimal(str(payload.price_brl))
+    if "life_category" in payload.model_fields_set:
+        m.life_category = payload.life_category
     db.commit()
     db.refresh(m)
     return _module_dict(m)
@@ -541,6 +673,8 @@ def admin_delete_module(
 def _pkg_dict(p: ModulePackage) -> Dict[str, Any]:
     return {
         "id": p.id,
+        "level_id": p.level_id,
+        "level_name": p.level.name if p.level else None,
         "quantity": p.quantity,
         "price_brl": float(p.price_brl),
         "description": p.description,
@@ -549,6 +683,7 @@ def _pkg_dict(p: ModulePackage) -> Dict[str, Any]:
 
 
 class PackageCreate(BaseModel):
+    level_id: Optional[int] = None
     quantity: int
     price_brl: float
     description: Optional[str] = None
@@ -556,6 +691,7 @@ class PackageCreate(BaseModel):
 
 
 class PackageUpdate(BaseModel):
+    level_id: Optional[int] = None
     quantity: Optional[int] = None
     price_brl: Optional[float] = None
     description: Optional[str] = None
@@ -564,13 +700,13 @@ class PackageUpdate(BaseModel):
 
 @app.get("/module-packages")
 def list_module_packages(db: Session = Depends(get_db)):
-    rows = db.query(ModulePackage).filter(ModulePackage.is_active == True).order_by(ModulePackage.quantity).all()
+    rows = db.query(ModulePackage).filter(ModulePackage.is_active == True).order_by(ModulePackage.level_id, ModulePackage.quantity).all()
     return {"items": [_pkg_dict(p) for p in rows]}
 
 
 @app.get("/admin/module-packages")
 def admin_list_module_packages(admin: User = Depends(require_admin), db: Session = Depends(get_db)):
-    rows = db.query(ModulePackage).order_by(ModulePackage.quantity).all()
+    rows = db.query(ModulePackage).order_by(ModulePackage.level_id, ModulePackage.quantity).all()
     return {"items": [_pkg_dict(p) for p in rows]}
 
 
@@ -581,10 +717,14 @@ def admin_create_module_package(
     db: Session = Depends(get_db),
     _csrf: None = Depends(require_csrf_header),
 ):
-    existing = db.query(ModulePackage).filter(ModulePackage.quantity == payload.quantity).first()
+    existing = db.query(ModulePackage).filter(
+        ModulePackage.level_id == payload.level_id,
+        ModulePackage.quantity == payload.quantity,
+    ).first()
     if existing:
-        raise HTTPException(status_code=409, detail="Já existe pacote para essa quantidade")
+        raise HTTPException(status_code=409, detail="Já existe pacote para essa quantidade neste nível")
     p = ModulePackage(
+        level_id=payload.level_id,
         quantity=payload.quantity,
         price_brl=Decimal(str(payload.price_brl)),
         description=payload.description,
@@ -607,13 +747,18 @@ def admin_update_module_package(
     p = db.get(ModulePackage, pid)
     if not p:
         raise HTTPException(status_code=404, detail="Pacote não encontrado")
-    if payload.quantity is not None:
+    new_level_id = payload.level_id if payload.level_id is not None else p.level_id
+    new_quantity  = payload.quantity  if payload.quantity  is not None else p.quantity
+    if payload.level_id is not None or payload.quantity is not None:
         conflict = db.query(ModulePackage).filter(
-            ModulePackage.quantity == payload.quantity, ModulePackage.id != pid
+            ModulePackage.level_id == new_level_id,
+            ModulePackage.quantity == new_quantity,
+            ModulePackage.id != pid,
         ).first()
         if conflict:
-            raise HTTPException(status_code=409, detail="Já existe pacote para essa quantidade")
-        p.quantity = payload.quantity
+            raise HTTPException(status_code=409, detail="Já existe pacote para essa quantidade neste nível")
+        p.level_id = new_level_id
+        p.quantity  = new_quantity
     if payload.price_brl is not None:
         p.price_brl = Decimal(str(payload.price_brl))
     if payload.description is not None:
@@ -707,20 +852,31 @@ def purchase_modules(
     # Total units being purchased
     total_qty = sum(payload.module_quantities.values())
 
-    # Find best package price based on total units
-    pkg = db.query(ModulePackage).filter(
-        ModulePackage.quantity == total_qty, ModulePackage.is_active == True
-    ).first()
+    # Preço calculado por nível: agrupa qtd por level_id e busca pacote por nível
+    mod_map = {m.id: m for m in modules}
 
-    if pkg:
-        price = Decimal(str(pkg.price_brl))
-    else:
-        # Sum individual prices × quantity
-        mod_map = {m.id: m for m in modules}
-        price = sum(
-            (mod_map[mid].price_brl or Decimal("0")) * qty
-            for mid, qty in payload.module_quantities.items()
-        )
+    # level_id (None = sem nível) -> total de unidades selecionadas desse nível
+    level_qtys: Dict[Optional[int], int] = {}
+    for mid, qty in payload.module_quantities.items():
+        lid = mod_map[mid].level_id
+        level_qtys[lid] = level_qtys.get(lid, 0) + qty
+
+    price = Decimal("0")
+    for lid, qty in level_qtys.items():
+        pkg = db.query(ModulePackage).filter(
+            ModulePackage.level_id == lid,
+            ModulePackage.quantity == qty,
+            ModulePackage.is_active == True,
+        ).first()
+        if pkg:
+            price += Decimal(str(pkg.price_brl))
+        else:
+            for mid, q in payload.module_quantities.items():
+                if mod_map[mid].level_id != lid:
+                    continue
+                m = mod_map[mid]
+                unit = Decimal(str(m.level.price_brl)) if m.level else (m.price_brl or Decimal("0"))
+                price += unit * q
 
     # Create order
     order = ModuleOrder(
@@ -1080,6 +1236,308 @@ def flow_advance(
     }
 
 
+# ---------------------------------------------------------------------------
+# Lives — geração e persistência de todas as vidas akáshicas
+# ---------------------------------------------------------------------------
+
+# Mapeamento de life_category → nome legível usado nos prompts
+_LIFE_CATEGORY_LABELS: Dict[str, str] = {
+    "gaia":      "Gaia (vidas passadas em Terra)",
+    "future":    "Futuro Probabilístico",
+    "lyra":      "Lyra (civilização lírica/felina)",
+    "pleiades":  "Plêiades (civilização pleiadiana)",
+    "sirius":    "Sírius (civilização síria)",
+    "orion":     "Órion (civilização orionita)",
+    "arcturus":  "Arcturus (civilização arcturiana)",
+    "andromeda": "Andrômeda (civilização andromedana)",
+    "eu_sou":    "EU SOU (escolha livre entre locais fora de Gaia já persistidos)",
+}
+
+# Categorias que representam locais fora de Gaia (geradas por módulos específicos)
+_OUTSIDE_GAIA_CATEGORIES = {"lyra", "pleiades", "sirius", "orion", "arcturus", "andromeda"}
+
+# Módulos especiais que usam vidas fora de Gaia já existentes sem gerar novas
+_USES_ANY_OUTSIDE_GAIA = {"eu_sou"}
+
+_GAIA_FUTURE_PROMPT = """\
+Você é um canal de Registros Akáshicos. Gere EXATAMENTE 3 vidas passadas em Gaia \
+e 3 vidas futuras probabilísticas para a pessoa abaixo.
+
+Dados da pessoa:
+- Nome completo: {full_name}
+- Nome iniciático: {initiatic_name}
+- Data de nascimento: {birth_date}
+- Local de nascimento: {birth_location}
+
+Retorne APENAS JSON válido, sem nenhum texto fora do JSON, no seguinte formato:
+{{
+  "gaia": [
+    {{
+      "order": 1,
+      "name": "Nome místico da vida (Ex: Lunara de Lemúria)",
+      "era": "Período e data aproximada (Ex: 50 mil a.C., Pacífico Perdido)",
+      "location": "Local específico em Gaia (Ex: Lemúria)",
+      "brief": "Frase breve e poética de identificação (Ex: Sacerdotisa das águas cristalinas)",
+      "detail": "Dois ou três parágrafos detalhados sobre esta vida"
+    }},
+    {{"order": 2, "name": "...", "era": "...", "location": "...", "brief": "...", "detail": "..."}},
+    {{"order": 3, "name": "...", "era": "...", "location": "...", "brief": "...", "detail": "..."}}
+  ],
+  "future": [
+    {{
+      "order": 1,
+      "name": "Nome místico (Ex: Nova de 2047)",
+      "era": "Ano e contexto (Ex: 2047, Nova Terra Regenerada)",
+      "location": "Local futuro (Ex: Ecovilas Brasileiras)",
+      "brief": "Frase breve e poética de identificação",
+      "detail": "Dois ou três parágrafos detalhados sobre esta vida futura"
+    }},
+    {{"order": 2, "name": "...", "era": "...", "location": "...", "brief": "...", "detail": "..."}},
+    {{"order": 3, "name": "...", "era": "...", "location": "...", "brief": "...", "detail": "..."}}
+  ]
+}}"""
+
+def _build_outside_gaia_prompt(location_label: str, info: dict, count: int, start_order: int) -> str:
+    """Monta o prompt para gerar `count` vidas fora de Gaia a partir de `start_order`."""
+    orders = list(range(start_order, start_order + count))
+    first_order = orders[0]
+    extra_lines = "\n    ".join(
+        f'{{"order": {o}, "name": "...", "era": "...", "location": "...", "brief": "...", "detail": "..."}}'
+        for o in orders[1:]
+    )
+    lives_schema = (
+        f'{{\n'
+        f'      "order": {first_order},\n'
+        f'      "name": "Nome místico da entidade nessa vida (Ex: Lirael de Lyra)",\n'
+        f'      "era": "Período e contexto temporal (Ex: Era Primordial Lírica, há 500 mil anos terrestres)",\n'
+        f'      "location": "Local específico no planeta/estrela (Ex: Campos de Cristal de Vega)",\n'
+        f'      "brief": "Frase breve e poética de identificação (Ex: Barda cósmica das harmonias primordiais)",\n'
+        f'      "detail": "Dois ou três parágrafos detalhados sobre esta vida"\n'
+        f'    }}'
+    )
+    if extra_lines:
+        lives_schema += f',\n    {extra_lines}'
+    return (
+        f'Você é um canal de Registros Akáshicos. Gere EXATAMENTE {count} vida(s) passada(s) em {location_label} '
+        f'para a pessoa abaixo. As vidas devem ser ricas em detalhes sobre a civilização e cultura desse planeta/estrela.\n\n'
+        f'Dados da pessoa:\n'
+        f'- Nome completo: {info["full_name"]}\n'
+        f'- Nome iniciático: {info["initiatic_name"]}\n'
+        f'- Data de nascimento: {info["birth_date"]}\n'
+        f'- Local de nascimento: {info["birth_location"]}\n\n'
+        f'Retorne APENAS JSON válido, sem nenhum texto fora do JSON, no seguinte formato:\n'
+        f'{{\n  "lives": [\n    {lives_schema}\n  ]\n}}'
+    )
+
+
+def _parse_json_response(raw: str) -> dict:
+    """Remove markdown code fences e faz parse do JSON."""
+    raw = raw.strip()
+    if raw.startswith("```"):
+        raw = raw.split("```", 2)[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+        raw = raw.rsplit("```", 1)[0].strip()
+    return json.loads(raw)
+
+
+def _subject_info(subject) -> dict:
+    full_name      = getattr(subject, "full_name", "") or ""
+    initiatic_name = getattr(subject, "initiatic_name", "") or ""
+    birth_date_raw = getattr(subject, "birth_date", None)
+    birth_date_str = birth_date_raw.strftime("%d/%m/%Y") if birth_date_raw else "não informada"
+    birth_country  = getattr(subject, "birth_country", "") or ""
+    birth_state    = getattr(subject, "birth_state", "") or ""
+    birth_city     = getattr(subject, "birth_city", "") or ""
+    birth_location = ", ".join(filter(None, [birth_city, birth_state, birth_country])) or "não informado"
+    return dict(
+        full_name=full_name or "não informado",
+        initiatic_name=initiatic_name or "não informado",
+        birth_date=birth_date_str,
+        birth_location=birth_location,
+    )
+
+
+def _save_lives(user_id: int, child_id: Optional[int], category: str, items: list, db: Session) -> None:
+    for item in items:
+        order = int(item.get("order", 0))
+        if order < 1 or order > 3:
+            continue
+        life = UserLife(
+            user_id=user_id,
+            child_id=child_id,
+            life_category=category,
+            life_order=order,
+            life_name=str(item.get("name", ""))[:300],
+            life_era=str(item.get("era", ""))[:300],
+            life_location=str(item.get("location", ""))[:300],
+            life_brief=str(item.get("brief", ""))[:500],
+            life_detail=str(item.get("detail", "")),
+        )
+        db.merge(life)
+    try:
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        print(f"[lives] Erro ao salvar categoria={category}: {exc}")
+
+
+def _generate_gaia_future(user_id: int, child_id: Optional[int], subject, db: Session) -> None:
+    """Gera e persiste 3 vidas em Gaia + 3 vidas Futuras (chamado uma única vez por pessoa)."""
+    info = _subject_info(subject)
+    try:
+        chat = ChatXAI(model=DEFAULT_MODEL, temperature=0.4)
+        response = chat.invoke([
+            SystemMessage(content="Você é um gerador de registros akáshicos. Responda APENAS com JSON válido."),
+            HumanMessage(content=_GAIA_FUTURE_PROMPT.format(**info)),
+        ])
+        data = _parse_json_response(getattr(response, "content", "") or "")
+    except Exception as exc:
+        print(f"[lives] Falha ao gerar gaia+future user={user_id} child={child_id}: {exc}")
+        return
+
+    for category in ("gaia", "future"):
+        _save_lives(user_id, child_id, category, data.get(category, []), db)
+    print(f"[lives] gaia+future persistidas para user={user_id} child={child_id}")
+
+
+def _generate_outside_gaia(
+    user_id: int, child_id: Optional[int], subject, category: str, db: Session,
+    count: int = 3, start_order: int = 1,
+) -> None:
+    """Gera e persiste `count` vidas para uma localização fora de Gaia, a partir de `start_order`."""
+    if count < 1:
+        return
+    location_label = _LIFE_CATEGORY_LABELS.get(category, category)
+    info = _subject_info(subject)
+    try:
+        chat = ChatXAI(model=DEFAULT_MODEL, temperature=0.4)
+        response = chat.invoke([
+            SystemMessage(content="Você é um gerador de registros akáshicos. Responda APENAS com JSON válido."),
+            HumanMessage(content=_build_outside_gaia_prompt(location_label, info, count, start_order)),
+        ])
+        data = _parse_json_response(getattr(response, "content", "") or "")
+    except Exception as exc:
+        print(f"[lives] Falha ao gerar {category} user={user_id} child={child_id}: {exc}")
+        return
+
+    _save_lives(user_id, child_id, category, data.get("lives", []), db)
+    print(f"[lives] {category} ({count} vida(s) a partir de order={start_order}) persistidas para user={user_id} child={child_id}")
+
+
+def _generate_eu_sou_outside_gaia(
+    user_id: int, child_id: Optional[int], subject, db: Session,
+) -> None:
+    """Quando EU SOU é o primeiro módulo, gera 1 vida seed em 3 locais aleatórios fora de Gaia."""
+    import random
+    existing_cats = {
+        r.life_category
+        for r in db.query(UserLife.life_category)
+        .filter(UserLife.user_id == user_id, UserLife.child_id == child_id)
+        .distinct()
+        .all()
+    }
+    available = [c for c in _OUTSIDE_GAIA_CATEGORIES if c not in existing_cats]
+    if not available:
+        return
+    chosen = random.sample(available, min(3, len(available)))
+    for cat in chosen:
+        _generate_outside_gaia(user_id, child_id, subject, cat, db, count=1, start_order=1)
+    print(f"[lives] eu_sou seeds geradas em {chosen} para user={user_id} child={child_id}")
+
+
+def _build_lives_context(
+    user_id: int,
+    child_id: Optional[int],
+    db: Session,
+    module_life_category: Optional[str] = None,
+) -> str:
+    """Retorna bloco de texto com as vidas persistidas para injetar no system prompt.
+
+    Comportamento por module_life_category:
+    - None / ausente      → injeta apenas Gaia + Futuro
+    - categoria específica → injeta Gaia + Futuro + as 3 vidas daquela localização
+    - 'eu_sou'            → injeta Gaia + Futuro + TODAS as vidas fora de Gaia já salvas,
+                             com instrução para o agente escolher livremente 3 (uma por local)
+    """
+    lives = (
+        db.query(UserLife)
+        .filter(UserLife.user_id == user_id, UserLife.child_id == child_id)
+        .order_by(UserLife.life_category, UserLife.life_order)
+        .all()
+    )
+    if not lives:
+        return ""
+
+    # Agrupa por categoria
+    by_cat: Dict[str, list] = {}
+    for lv in lives:
+        by_cat.setdefault(lv.life_category, []).append(lv)
+
+    # Decide quais categorias fora de Gaia incluir
+    if module_life_category in _USES_ANY_OUTSIDE_GAIA:
+        # Inclui todas as categorias fora de Gaia que já foram salvas
+        outside_cats = [c for c in ["lyra", "pleiades", "sirius", "orion", "arcturus", "andromeda"]
+                        if c in by_cat]
+    elif module_life_category in _OUTSIDE_GAIA_CATEGORIES:
+        outside_cats = [module_life_category] if module_life_category in by_cat else []
+    else:
+        outside_cats = []
+
+    # Se não há nada relevante a injetar além de gaia/future, e eles não existem, retorna vazio
+    has_gaia   = "gaia"   in by_cat
+    has_future = "future" in by_cat
+    if not has_gaia and not has_future and not outside_cats:
+        return ""
+
+    lines = [
+        "",
+        "---",
+        "VIDAS AKÁSHICAS JÁ REGISTRADAS PARA ESTA PESSOA:",
+        "",
+    ]
+
+    # Vidas fora de Gaia
+    if outside_cats:
+        if module_life_category in _USES_ANY_OUTSIDE_GAIA:
+            n_locs = len(outside_cats)
+            n_choose = min(3, n_locs)
+            lines.append(
+                f"Vidas Fora de Gaia disponíveis — {n_locs} localização(ões) salva(s). "
+                f"Escolha EXATAMENTE {n_choose} vida(s), UMA por localização (localizações diferentes). "
+                "NUNCA use mais de uma vida da mesma localização. "
+                "Não altere nomes, eras, locais nem personalidades das vidas escolhidas:"
+            )
+            # Para eu_sou: expõe apenas 1 vida por localização (a de melhor destaque = life_order=1)
+            for cat in outside_cats:
+                label = _LIFE_CATEGORY_LABELS.get(cat, cat)
+                lv = by_cat[cat][0]  # life_order mais baixo = mais representativa
+                lines.append(f"  [{label}] {lv.life_name} ({lv.life_era}, {lv.life_location}): {lv.life_brief}")
+        else:
+            label = _LIFE_CATEGORY_LABELS.get(outside_cats[0], outside_cats[0])
+            lines.append(f"Vidas em {label} — USE EXATAMENTE ESTAS (não altere nomes, eras nem personalidades):")
+            for lv in by_cat[outside_cats[0]]:
+                lines.append(f"    {lv.life_order}. {lv.life_name} ({lv.life_era}, {lv.life_location}): {lv.life_brief}")
+        lines.append("")
+
+    # Gaia
+    if has_gaia:
+        lines.append("Vidas Passadas em Gaia — USE EXATAMENTE ESTAS (não altere nomes, eras nem personalidades):")
+        for lv in by_cat["gaia"]:
+            lines.append(f"  {lv.life_order}. {lv.life_name} ({lv.life_era}, {lv.life_location}): {lv.life_brief}")
+        lines.append("")
+
+    # Futuro
+    if has_future:
+        lines.append("Vidas Futuras — USE EXATAMENTE ESTAS (não altere nomes, eras nem personalidades):")
+        for lv in by_cat["future"]:
+            lines.append(f"  {lv.life_order}. {lv.life_name} ({lv.life_era}, {lv.life_location}): {lv.life_brief}")
+        lines.append("")
+
+    lines.append("---")
+    return "\n".join(lines)
+
+
 @app.post("/sessions/{cid}/send-opening")
 def send_opening(
     cid: str,
@@ -1112,6 +1570,45 @@ def send_opening(
         return {"status": "already_sent"}
 
     subject = s.child if s.child_id and s.child else user
+
+    # Garante vidas em Gaia + Futuras (sempre necessárias, geradas uma única vez)
+    existing_cats = {
+        r.life_category
+        for r in db.query(UserLife.life_category)
+        .filter(UserLife.user_id == user.id, UserLife.child_id == s.child_id)
+        .distinct()
+        .all()
+    }
+    if "gaia" not in existing_cats or "future" not in existing_cats:
+        _generate_gaia_future(user.id, s.child_id, subject, db)
+
+    mod_life_cat = getattr(s.module, "life_category", None)
+
+    if mod_life_cat in _USES_ANY_OUTSIDE_GAIA:
+        # EU SOU: gera 1 vida seed em 3 locais aleatórios se nenhuma vida fora de Gaia existe ainda
+        has_any_outside = existing_cats & _OUTSIDE_GAIA_CATEGORIES
+        if not has_any_outside:
+            _generate_eu_sou_outside_gaia(user.id, s.child_id, subject, db)
+
+    elif mod_life_cat and mod_life_cat in _OUTSIDE_GAIA_CATEGORIES:
+        # Módulo específico: verifica quantas vidas já existem nessa categoria
+        existing_count = (
+            db.query(UserLife)
+            .filter(
+                UserLife.user_id == user.id,
+                UserLife.child_id == s.child_id,
+                UserLife.life_category == mod_life_cat,
+            )
+            .count()
+        )
+        if existing_count < 3:
+            # Gera apenas as vidas faltantes, aproveitando as já salvas (ex.: seed do EU SOU)
+            _generate_outside_gaia(
+                user.id, s.child_id, subject, mod_life_cat, db,
+                count=3 - existing_count,
+                start_order=existing_count + 1,
+            )
+
     template = s.module.opening_prompt
     full_name      = getattr(subject, "full_name", "") or ""
     initiatic_name = getattr(subject, "initiatic_name", "") or ""
@@ -1426,6 +1923,23 @@ async def stream(
         if active_step and active_step.step_system_prompt:
             system_prompt = active_step.step_system_prompt
 
+    # Injeta vidas persistidas no system prompt conforme o tipo do módulo
+    mod_life_cat = s.module.life_category if s.module else None
+    lives_ctx = _build_lives_context(user.id, s.child_id, db, module_life_category=mod_life_cat)
+    if lives_ctx:
+        system_prompt = system_prompt + lives_ctx
+
+    # Regras de formatação obrigatórias — aplicadas a todos os módulos
+    system_prompt += (
+        "\n\n---\nREGRAS DE FORMATAÇÃO (invioláveis):\n"
+        "- NUNCA inclua colchetes, notas internas, comentários de planejamento, "
+        "marcações de rascunho ou instruções meta na resposta. "
+        "Sua resposta é exibida diretamente ao usuário final.\n"
+        "- NUNCA mencione contagem de palavras, caracteres ou parágrafos "
+        "(ex.: '(204 palavras)', '[expandir depois]', '[~200 words]'). "
+        "Escreva o conteúdo completo e final sem nenhuma anotação desse tipo."
+    )
+
     msgs: List[Any] = [SystemMessage(content=system_prompt)]
 
     s = (
@@ -1440,7 +1954,7 @@ async def stream(
             msgs.append(AIMessage(content=m.content))
 
     try:
-        chat = ChatXAI(model=DEFAULT_MODEL, temperature=0.2)
+        chat = ChatXAI(model=DEFAULT_MODEL, temperature=0.4)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

@@ -7,6 +7,8 @@ import ModuleList        from './pages/modules/ModuleList';
 import ModuleForm        from './pages/modules/ModuleForm';
 import ModulePackageList from './pages/modules/ModulePackageList';
 import ModulePackageForm from './pages/modules/ModulePackageForm';
+import ModuleLevelList   from './pages/modules/ModuleLevelList';
+import ModuleLevelForm   from './pages/modules/ModuleLevelForm';
 import ClientList     from './pages/clients/ClientList';
 import AdminUserList  from './pages/adminUsers/AdminUserList';
 import AdminUserForm  from './pages/adminUsers/AdminUserForm';
@@ -33,6 +35,9 @@ export default function App() {
           <Route path="/modulos/pacotes" element={<ProtectedRoute><ModulePackageList /></ProtectedRoute>} />
           <Route path="/modulos/pacotes/novo" element={<ProtectedRoute><ModulePackageForm /></ProtectedRoute>} />
           <Route path="/modulos/pacotes/:id/editar" element={<ProtectedRoute><ModulePackageForm /></ProtectedRoute>} />
+          <Route path="/modulos/niveis" element={<ProtectedRoute><ModuleLevelList /></ProtectedRoute>} />
+          <Route path="/modulos/niveis/novo" element={<ProtectedRoute><ModuleLevelForm /></ProtectedRoute>} />
+          <Route path="/modulos/niveis/:id/editar" element={<ProtectedRoute><ModuleLevelForm /></ProtectedRoute>} />
 
           <Route path="/clientes" element={<ProtectedRoute><ClientList /></ProtectedRoute>} />
 

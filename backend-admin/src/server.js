@@ -39,6 +39,7 @@ app.use('/api/orders',           ordersRouter);
 app.use('/api/upload',           uploadRouter);
 app.use('/api/module-packages',  require('./routes/modulePackages'));
 app.use('/api/module-orders',    require('./routes/moduleOrders'));
+app.use('/api/module-levels',    require('./routes/moduleLevels'));
 app.use('/api/settings',   require('./routes/settings'));
 app.use('/api/dashboard',  require('./routes/dashboard'));
 app.use('/uploads', require('express').static(require('path').resolve(__dirname, '../uploads')));

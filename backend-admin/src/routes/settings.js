@@ -17,7 +17,7 @@ router.get('/', requireAuth, async (req, res) => {
 // PUT /api/settings
 router.put('/', requireAuth, requirePermission('agente', 'update'), async (req, res) => {
   try {
-    const allowed = ['site_title', 'logo_url', 'logo_svg'];
+    const allowed = ['site_title', 'logo_url', 'logo_svg', 'login_bg_url'];
     const entries = Object.entries(req.body).filter(([k]) => allowed.includes(k));
     if (!entries.length) return res.status(400).json({ error: 'Nenhum campo válido.' });
 

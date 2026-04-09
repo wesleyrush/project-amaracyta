@@ -8,6 +8,7 @@ interface Settings {
   site_title: string;
   logo_url: string;
   logo_svg: string;
+  login_bg_url: string;
 }
 
 const API = '/api';
@@ -20,7 +21,9 @@ async function apiFetch(path: string, opts?: RequestInit) {
 
 export default function SiteSettingsPage() {
   const { hasResource } = useAuth();
-  const [form, setForm] = useState<Settings>({ site_title: '', logo_url: '', logo_svg: '' });
+  const [form, setForm] = useState<Settings>({ site_title: '', logo_url: '', logo_svg: '', login_bg_url: '' });
+  const bgFileRef = useRef<HTMLInputElement>(null);
+  const [uploadingBg, setUploadingBg] = useState(false);
   const [loading, setLoading]   = useState(true);
   const [saving,  setSaving]    = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -30,9 +33,10 @@ export default function SiteSettingsPage() {
     if (!hasResource('configuracoes')) return;
     apiFetch('/settings')
       .then(s => setForm({
-        site_title: s.site_title || '',
-        logo_url:   s.logo_url   || '',
-        logo_svg:   s.logo_svg   || '',
+        site_title:   s.site_title   || '',
+        logo_url:     s.logo_url     || '',
+        logo_svg:     s.logo_svg     || '',
+        login_bg_url: s.login_bg_url || '',
       }))
       .catch(() => Swal.fire('Erro', 'Não foi possível carregar as configurações.', 'error'))
       .finally(() => setLoading(false));
@@ -81,6 +85,29 @@ export default function SiteSettingsPage() {
 
   function clearLogo() {
     setForm(f => ({ ...f, logo_url: '', logo_svg: '' }));
+  }
+
+  async function handleUploadBg(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingBg(true);
+    try {
+      const data = new FormData();
+      data.append('image', file);
+      const r = await fetch(`${API}/upload/login-bg`, {
+        method: 'POST',
+        credentials: 'include',
+        body: data,
+      });
+      if (!r.ok) throw new Error((await r.json()).error || 'Erro no upload');
+      const { url } = await r.json();
+      setForm(f => ({ ...f, login_bg_url: url }));
+    } catch (err: any) {
+      Swal.fire('Erro', err.message, 'error');
+    } finally {
+      setUploadingBg(false);
+      if (bgFileRef.current) bgFileRef.current.value = '';
+    }
   }
 
   if (loading) return <Layout title="Configurações do Agente"><div className="page-loading">Carregando…</div></Layout>;
@@ -161,6 +188,52 @@ export default function SiteSettingsPage() {
             <small className="form-hint">
               Se preencher o SVG, a imagem enviada será ignorada. Deixe em branco para usar o logo padrão.
             </small>
+          </div>
+        </div>
+
+        {/* Imagem de fundo do Login */}
+        <div className="form-group">
+          <label className="form-label">Imagem de Fundo do Login</label>
+
+          {form.login_bg_url && (
+            <div className="logo-preview-wrap" style={{ maxHeight: 160, overflow: 'hidden', borderRadius: 8, marginBottom: 12 }}>
+              <img src={form.login_bg_url} alt="login bg" style={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: 8 }} />
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
+            <button
+              className="btn-secondary"
+              type="button"
+              onClick={() => bgFileRef.current?.click()}
+              disabled={uploadingBg}
+            >
+              {uploadingBg ? 'Enviando…' : '📤 Upload de imagem'}
+            </button>
+            {form.login_bg_url && (
+              <button className="btn-danger-outline" type="button" onClick={() => setForm(f => ({ ...f, login_bg_url: '' }))}>
+                🗑 Remover imagem
+              </button>
+            )}
+            <input
+              ref={bgFileRef}
+              type="file"
+              accept=".png,.jpg,.jpeg,.webp"
+              style={{ display: 'none' }}
+              onChange={handleUploadBg}
+            />
+          </div>
+
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label" style={{ marginBottom: 4 }}>Ou cole uma URL diretamente:</label>
+            <input
+              className="form-input"
+              type="url"
+              value={form.login_bg_url}
+              onChange={e => setForm(f => ({ ...f, login_bg_url: e.target.value }))}
+              placeholder="https://..."
+            />
+            <small className="form-hint">Exibida no painel direito da tela de login e cadastro.</small>
           </div>
         </div>
 

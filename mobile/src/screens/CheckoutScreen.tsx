@@ -221,7 +221,7 @@ export default function CheckoutScreen() {
                 <Text style={[styles.buyBtnText, { marginLeft: spacing.sm }]}>Processando...</Text>
               </View>
             )
-            : <Text style={styles.buyBtnText}>Confirmar pagamento</Text>}
+            : <Text style={styles.buyBtnText}>Confirmar ativação</Text>}
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>

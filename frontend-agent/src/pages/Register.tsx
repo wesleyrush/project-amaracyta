@@ -1,5 +1,6 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { api } from '../api/client';
+import { getSettings, type SiteSettings } from '../api/settings';
 import AkashaLogo from '../components/AkashaLogo';
 
 const BR_STATES = [
@@ -20,12 +21,17 @@ export default function Register() {
   const [password,      setPwd]           = useState('');
   const [err,           setErr]           = useState('');
   const [loading,       setLoading]       = useState(false);
+  const [settings,      setSettings]      = useState<SiteSettings>({});
+
+  useEffect(() => {
+    getSettings().then(setSettings).catch(() => {});
+  }, []);
 
   const isBrazil = birthCountry.trim().toLowerCase() === 'brasil';
 
   function handleCountryChange(v: string) {
     setBirthCountry(v);
-    setBirthState(''); // reset state when country changes
+    setBirthState('');
   }
 
   async function onSubmit(e: FormEvent) {
@@ -53,109 +59,104 @@ export default function Register() {
     }
   }
 
+  const logoEl = settings.logo_svg
+    ? <span className="auth-logo-svg" dangerouslySetInnerHTML={{ __html: settings.logo_svg }} />
+    : settings.logo_url
+      ? <img src={settings.logo_url} alt="logo" className="auth-logo-img" />
+      : <AkashaLogo size={160} />;
+
   return (
-    <div className="auth-page">
-      <div className="auth-brand">
-        <AkashaLogo size={96} />
-        <h1 className="auth-brand-name">Mahamatrix</h1>
-      </div>
+    <div
+      className="auth-page"
+      style={settings.login_bg_url ? { backgroundImage: `url(${settings.login_bg_url})` } : undefined}
+    >
+      <div className="auth-overlay" />
 
-      <div className="auth-card auth-card--wide">
-        <h2 className="auth-card-title">Criar conta</h2>
+      <div className="auth-box auth-box--wide">
+      <div className="auth-split-logo">{logoEl}<br/><h1 className="auth-split-textlogo">Mahamatrix</h1></div>
 
-        <form onSubmit={onSubmit}>
+        <h1 className="auth-split-title">
+          Criar conta
+        </h1>
+
+        <form onSubmit={onSubmit} className="auth-split-fields">
 
           {/* ── Identificação ── */}
-          <p className="auth-section-label">Identificação</p>
+          <p className="auth-section-label auth-col-span">Identificação</p>
 
-          <div className="auth-field">
-            <label className="auth-label">
-              Nome Completo <span className="auth-req">*</span>
-            </label>
-            <input type="text" placeholder="Seu nome completo" minLength={3} required
-                   value={fullName} onChange={e => setFullName(e.target.value)} />
+          <div className="auth-split-field">
+            <label className="auth-split-label">Nome Completo <span className="auth-req">*</span></label>
+            <input className="auth-split-input" type="text" placeholder="Seu nome completo"
+                   minLength={3} required value={fullName} onChange={e => setFullName(e.target.value)} />
           </div>
 
-          <div className="auth-field">
-            <label className="auth-label">
-              Nome Iniciático <span className="auth-opt">(opcional)</span>
-            </label>
-            <input type="text" placeholder="Ex.: Zephyrion Arcturiano"
+          <div className="auth-split-field">
+            <label className="auth-split-label">Nome Iniciático <span className="auth-opt">(opcional)</span></label>
+            <input className="auth-split-input" type="text" placeholder="Ex.: Zephyrion Arcturiano"
                    value={iniciaticName} onChange={e => setIniciaticName(e.target.value)} />
           </div>
 
           {/* ── Nascimento ── */}
-          <p className="auth-section-label">Dados de Nascimento</p>
+          <p className="auth-section-label auth-col-span">Dados de Nascimento</p>
 
-          <div className="auth-field-row">
-            <div className="auth-field">
-              <label className="auth-label">
-                Data <span className="auth-req">*</span>
-                <span className="auth-hint"> dd/mm/aaaa</span>
-              </label>
-              <input type="date" required value={birth} onChange={e => setBirth(e.target.value)} />
-            </div>
-            <div className="auth-field">
-              <label className="auth-label">
-                Hora <span className="auth-req">*</span>
-                <span className="auth-hint"> hh:mm</span>
-              </label>
-              <input type="time" required value={birthTime} onChange={e => setBirthTime(e.target.value)} />
-            </div>
+          <div className="auth-split-field">
+            <label className="auth-split-label">Data <span className="auth-req">*</span></label>
+            <input className="auth-split-input" type="date" required value={birth} onChange={e => setBirth(e.target.value)} />
           </div>
 
-          <div className="auth-field">
-            <label className="auth-label">País <span className="auth-req">*</span></label>
-            <input type="text" placeholder="Ex.: Brasil, Portugal, Argentina…" required
+          <div className="auth-split-field">
+            <label className="auth-split-label">Hora <span className="auth-req">*</span></label>
+            <input className="auth-split-input" type="time" required value={birthTime} onChange={e => setBirthTime(e.target.value)} />
+          </div>
+
+          <div className="auth-split-field">
+            <label className="auth-split-label">País <span className="auth-req">*</span></label>
+            <input className="auth-split-input" type="text" placeholder="Ex.: Brasil, Portugal…" required
                    value={birthCountry} onChange={e => handleCountryChange(e.target.value)} />
           </div>
 
-          <div className="auth-field-row">
-            <div className="auth-field">
-              <label className="auth-label">Estado <span className="auth-req">*</span></label>
-              {isBrazil ? (
-                <select required value={birthState} onChange={e => setBirthState(e.target.value)}>
-                  <option value="">Selecione…</option>
-                  {BR_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              ) : (
-                <input type="text" placeholder="Estado / Província" required
-                       value={birthState} onChange={e => setBirthState(e.target.value)} />
-              )}
-            </div>
-            <div className="auth-field">
-              <label className="auth-label">Cidade <span className="auth-req">*</span></label>
-              <input type="text" placeholder="Cidade" required
-                     value={birthCity} onChange={e => setBirthCity(e.target.value)} />
-            </div>
+          <div className="auth-split-field">
+            <label className="auth-split-label">Estado <span className="auth-req">*</span></label>
+            {isBrazil ? (
+              <select className="auth-split-input" required value={birthState} onChange={e => setBirthState(e.target.value)}>
+                <option value="">Selecione…</option>
+                {BR_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            ) : (
+              <input className="auth-split-input" type="text" placeholder="Estado / Província" required
+                     value={birthState} onChange={e => setBirthState(e.target.value)} />
+            )}
+          </div>
+
+          <div className="auth-split-field">
+            <label className="auth-split-label">Cidade <span className="auth-req">*</span></label>
+            <input className="auth-split-input" type="text" placeholder="Cidade" required
+                   value={birthCity} onChange={e => setBirthCity(e.target.value)} />
           </div>
 
           {/* ── Acesso ── */}
-          <p className="auth-section-label">Dados de Acesso</p>
+          <p className="auth-section-label auth-col-span">Dados de Acesso</p>
 
-          <div className="auth-field">
-            <label className="auth-label">E-mail <span className="auth-req">*</span></label>
-            <input type="email" placeholder="seu@email.com" required
+          <div className="auth-split-field">
+            <label className="auth-split-label">E-mail <span className="auth-req">*</span></label>
+            <input className="auth-split-input" type="email" placeholder="seu@email.com" required
                    value={email} onChange={e => setEmail(e.target.value)} />
           </div>
 
-          <div className="auth-field">
-            <label className="auth-label">
-              Senha <span className="auth-req">*</span>
-              <span className="auth-hint"> mínimo 8 caracteres</span>
-            </label>
-            <input type="password" placeholder="••••••••" minLength={8} required
+          <div className="auth-split-field">
+            <label className="auth-split-label">Senha <span className="auth-req">*</span> <span className="auth-hint">mín. 8 caracteres</span></label>
+            <input className="auth-split-input" type="password" placeholder="••••••••" minLength={8} required
                    value={password} onChange={e => setPwd(e.target.value)} />
           </div>
 
-          {err && <p className="auth-err" role="alert">{err}</p>}
+          {err && <p className="auth-split-err auth-col-span" role="alert">{err}</p>}
 
-          <button className="btn-primary auth-submit" type="submit" disabled={loading}>
+          <button className="auth-split-btn auth-col-span" type="submit" disabled={loading}>
             {loading ? 'Cadastrando…' : 'Cadastrar'}
           </button>
         </form>
 
-        <p className="auth-footer-link">Já tem conta? <a href="/login">Entrar</a></p>
+        <a href="/login" className="auth-split-link">Já tenho uma conta</a>
       </div>
     </div>
   );

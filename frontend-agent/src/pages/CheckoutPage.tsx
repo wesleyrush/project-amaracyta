@@ -104,7 +104,7 @@ export default function CheckoutPage() {
     <div className="checkout-page">
       <div className="checkout-inner">
         <button className="store-back-btn" onClick={() => navigate('/store')}>
-          ← Voltar à loja
+          ← Voltar à lista
         </button>
 
         <h1 className="checkout-title">Finalizar Ativação</h1>
@@ -213,7 +213,7 @@ export default function CheckoutPage() {
                   </div>
                 </div>
                 <p className="pay-pix-info">
-                  Em um ambiente real, o QR Code PIX seria gerado aqui. Clique em "Confirmar pagamento" para simular a aprovação.
+                  Em um ambiente real, o QR Code PIX seria gerado aqui. Clique em "Confirmar ativaçãos" para simular a aprovação.
                 </p>
               </div>
             )}
@@ -225,7 +225,7 @@ export default function CheckoutPage() {
                   <small>Código de barras simulado</small>
                 </div>
                 <p className="pay-boleto-info">
-                  Em um ambiente real, o boleto seria gerado aqui. Clique em "Confirmar pagamento" para simular a aprovação.
+                  Em um ambiente real, o boleto seria gerado aqui. Clique em "Confirmar ativação" para simular a aprovação.
                 </p>
               </div>
             )}
@@ -240,7 +240,7 @@ export default function CheckoutPage() {
                   <span className="checkout-spinner" /> Processando pagamento...
                 </span>
               ) : (
-                `Confirmar pagamento · ${chest.price_brl.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`
+                `Confirmar ativação · ${chest.price_brl.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`
               )}
             </button>
           </form>

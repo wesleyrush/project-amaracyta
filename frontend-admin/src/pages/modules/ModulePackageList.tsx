@@ -44,12 +44,20 @@ export default function ModulePackageList() {
     }
   };
 
+  const fmt = (v: number) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
   const columns: Column<Record<string, unknown>>[] = [
     { key: 'id', label: 'ID', sortable: true },
+    {
+      key: 'level_name', label: 'Nível', sortable: true,
+      render: row => row.level_name
+        ? <strong>{String(row.level_name)}</strong>
+        : <em style={{ color: '#9ca3af' }}>—</em>,
+    },
     { key: 'quantity', label: 'Qtd. Módulos', sortable: true },
     {
       key: 'price_brl', label: 'Preço do Pacote', sortable: true,
-      render: row => Number(row.price_brl).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+      render: row => fmt(Number(row.price_brl)),
     },
     { key: 'description', label: 'Descrição', sortable: false,
       render: row => String(row.description ?? '-') },
@@ -76,7 +84,7 @@ export default function ModulePackageList() {
         </div>
         <div className="card-body">
           <p style={{ marginBottom: 16, color: '#6b7280', fontSize: 14 }}>
-            Defina preços por quantidade de módulos fixos comprados juntos. Ex: 1 módulo = R$7,77 · 2 módulos = R$9,99 · 3 módulos = R$11,11.
+            Defina preços especiais por quantidade de módulos de um determinado nível comprados juntos.
           </p>
           <DataTable
             columns={columns}

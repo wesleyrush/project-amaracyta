@@ -128,4 +128,39 @@ router.post(
   }
 );
 
+const LOGIN_BG_DIR = path.resolve(__dirname, '../../uploads/login-bg');
+if (!fs.existsSync(LOGIN_BG_DIR)) fs.mkdirSync(LOGIN_BG_DIR, { recursive: true });
+
+const storageLoginBg = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, LOGIN_BG_DIR),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `login-bg-${Date.now()}${ext}`);
+  },
+});
+const uploadLoginBg = multer({
+  storage: storageLoginBg,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['.png', '.jpg', '.jpeg', '.webp'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowed.includes(ext)) return cb(null, true);
+    cb(new Error('Formato não permitido. Use PNG, JPG ou WebP.'));
+  },
+});
+
+// POST /api/upload/login-bg
+router.post(
+  '/login-bg',
+  requireAuth,
+  requirePermission('agente', 'update'),
+  uploadLoginBg.single('image'),
+  (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
+    const origin  = `${req.protocol}://${req.get('host')}`;
+    const fileUrl = `${origin}/uploads/login-bg/${req.file.filename}`;
+    res.json({ url: fileUrl });
+  }
+);
+
 module.exports = router;

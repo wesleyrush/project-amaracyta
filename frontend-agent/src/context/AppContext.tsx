@@ -19,7 +19,7 @@ const ZERO_BALANCES: CoinBalances = { gold: 0, silver: 0, bronze: 0 };
 type Ctx = {
   user: User | null;
   cid: string | null;
-  setCid: (v: string) => void;
+  setCid: (v: string | null) => void;
   sessions: SessionListItem[];
   setSessions: (s: SessionListItem[]) => void;
   lastCidKey: (uid: string) => string;
@@ -106,21 +106,8 @@ export function AppProvider({ children }: {children: ReactNode}) {
     }
   }, []);
 
-  const bootstrapCid = useCallback(async (uid: string) => {
-    const saved = localStorage.getItem(lastCidKey(uid));
-    if (saved) {
-      try {
-        await getSession(saved);
-        setCid(saved);
-        return saved;
-      } catch {}
-    }
-    const list = await listSessions();
-    if (list?.items?.length) {
-      setCid(list.items[0].id);
-      return list.items[0].id;
-    }
-    setShowModulePicker(true);
+  const bootstrapCid = useCallback(async (_uid: string) => {
+    // Sempre inicia sem sessão ativa — o usuário escolhe qual abrir na sidebar
     return null;
   }, []);
 
@@ -134,8 +121,7 @@ export function AppProvider({ children }: {children: ReactNode}) {
     (async () => {
       const u = await bootstrapAuth();
       if (!u) return;
-      const cur = await bootstrapCid(String(u.id));
-      if (cur) localStorage.setItem(lastCidKey(String(u.id)), cur);
+      await bootstrapCid(String(u.id));
       const l = await listSessions();
       setSessions(l.items || []);
       await refreshBalance();

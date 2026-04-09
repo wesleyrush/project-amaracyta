@@ -80,7 +80,7 @@ export default function ModuleCheckoutPage() {
     <div className="checkout-page">
       <div className="checkout-inner">
         <button className="store-back-btn" onClick={() => navigate('/store')}>
-          ← Voltar à loja
+          ← Voltar à lista
         </button>
 
         <h1 className="checkout-title">Finalizar Ativação - Módulos</h1>
@@ -192,10 +192,10 @@ export default function ModuleCheckoutPage() {
             <button type="submit" className="checkout-pay-btn" disabled={processing}>
               {processing ? (
                 <span className="checkout-processing">
-                  <span className="checkout-spinner" /> Processando pagamento...
+                  <span className="checkout-spinner" /> Processando ativação...
                 </span>
               ) : (
-                `Confirmar pagamento · ${fmt(price)}`
+                `Confirmar ativação · ${fmt(price)}`
               )}
             </button>
           </form>

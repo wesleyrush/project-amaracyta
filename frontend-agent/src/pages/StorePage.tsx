@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { listChests } from '../api/chests';
-import { listModules, listModulePackages, listUserModules } from '../api/modules';
-import type { CoinChest, Module, ModulePackage, UserModule } from '../types';
+import { listModules, listModulePackages, listUserModules, listModuleLevels } from '../api/modules';
+import type { CoinChest, Module, ModuleLevel, ModulePackage, UserModule } from '../types';
 import { swal } from '../utils/swal';
 
 type CoinType = 'gold' | 'silver' | 'bronze';
@@ -68,6 +68,7 @@ const COIN_CONFIG: Record<CoinType, {
 function ModulesTab() {
   const navigate = useNavigate();
   const [modules,   setModules]   = useState<Module[]>([]);
+  const [levels,    setLevels]    = useState<ModuleLevel[]>([]);
   const [packages,  setPackages]  = useState<ModulePackage[]>([]);
   const [ownedMap,  setOwnedMap]  = useState<Map<number, UserModule>>(new Map());
   // quantities: module_id -> units to purchase
@@ -75,11 +76,12 @@ function ModulesTab() {
   const [loading,   setLoading]   = useState(true);
 
   useEffect(() => {
-    Promise.all([listModules(), listModulePackages(), listUserModules()])
-      .then(([mods, pkgs, userMods]) => {
+    Promise.all([listModules(), listModulePackages(), listUserModules(), listModuleLevels()])
+      .then(([mods, pkgs, userMods, lvls]) => {
         setModules(mods.items.filter(m => m.module_type === 'fixed' && m.is_active));
         setPackages(pkgs.items);
         setOwnedMap(new Map(userMods.items.map(um => [um.module_id, um])));
+        setLevels(lvls.items.filter(l => l.is_active));
       })
       .catch(() => swal.error('Erro', 'Não foi possível carregar os módulos.'))
       .finally(() => setLoading(false));
@@ -100,18 +102,46 @@ function ModulesTab() {
   // Total units being purchased
   const totalQty = Object.values(quantities).reduce((s, n) => s + n, 0);
 
-  // Price: package match on total units, else sum individual * qty
-  const getPrice = (): number | null => {
-    if (totalQty === 0) return null;
-    const pkg = packages.find(p => p.quantity === totalQty);
-    if (pkg) return pkg.price_brl;
-    return modules.reduce((acc, m) => {
+  // Qty por level_id (null = sem nível)
+  const levelQtys = (): Map<number | null, number> => {
+    const map = new Map<number | null, number>();
+    for (const m of modules) {
       const q = quantities[m.id] ?? 0;
-      return acc + (m.price_brl ?? 0) * q;
-    }, 0);
+      if (q === 0) continue;
+      const lid = m.level_id ?? null;
+      map.set(lid, (map.get(lid) ?? 0) + q);
+    }
+    return map;
   };
 
-  const nextPkg = packages.find(p => p.quantity === totalQty + 1);
+  // Price: por nível, busca pacote matching (level_id, qty); senão, soma individual
+  const getPrice = (): number | null => {
+    if (totalQty === 0) return null;
+    let total = 0;
+    for (const [lid, qty] of levelQtys()) {
+      const pkg = packages.find(p => p.level_id === lid && p.quantity === qty);
+      if (pkg) {
+        total += pkg.price_brl;
+      } else {
+        for (const m of modules) {
+          const q = quantities[m.id] ?? 0;
+          if (q === 0 || (m.level_id ?? null) !== lid) continue;
+          total += (m.level_price_brl ?? m.price_brl ?? 0) * q;
+        }
+      }
+    }
+    return total;
+  };
+
+  // Próximo pacote por nível: retorna { level_id, nextPkg } para cada nível com seleção
+  const nextPkgByLevel = (): Map<number | null, ModulePackage> => {
+    const map = new Map<number | null, ModulePackage>();
+    for (const [lid, qty] of levelQtys()) {
+      const next = packages.find(p => p.level_id === lid && p.quantity === qty + 1);
+      if (next) map.set(lid, next);
+    }
+    return map;
+  };
   const currentPrice = getPrice();
   const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -127,51 +157,114 @@ function ModulesTab() {
   if (loading) return <div className="store-loading">Carregando módulos...</div>;
   if (modules.length === 0) return <div className="store-empty">Nenhum módulo disponível no momento.</div>;
 
+  // Agrupa módulos por nível, na ordem dos níveis; módulos sem nível ficam ao final
+  const modulesByLevel = levels.map(lvl => ({
+    level: lvl,
+    mods: modules.filter(m => m.level_id === lvl.id),
+  })).filter(g => g.mods.length > 0);
+  const noLevelMods = modules.filter(m => !m.level_id);
+
+  const renderCard = (m: Module) => {
+    const owned = ownedMap.get(m.id);
+    const buyQty = quantities[m.id] ?? 0;
+    return (
+      <div key={m.id} className={`module-store-card${buyQty > 0 ? ' module-card-selected' : ''}`}>
+        {owned && (
+          <div className="module-card-owned-badge">
+            ✓ Já adquiriu {owned.quantity} · total {owned.available_qty > 1 ? 'disponíveis' : 'disponível'}: {owned.available_qty}
+          </div>
+        )}
+        {m.image_svg && (
+          (m.image_svg.startsWith('http') || m.image_svg.startsWith('/'))
+            ? <img className="module-card-img" src={m.image_svg} alt={m.name} />
+            : <div className="module-card-img" dangerouslySetInnerHTML={{ __html: m.image_svg }} />
+        )}
+        <h3 className="module-card-name">{m.name}</h3>
+        {m.description && <p className="module-card-desc">{m.description}</p>}
+        <div className="module-card-price">
+          {(m.level_price_brl ?? m.price_brl) != null
+            ? fmt(m.level_price_brl ?? m.price_brl ?? 0) + ' / unidade'
+            : 'Consulte pacotes'}
+        </div>
+        <div className="module-qty-stepper">
+          <button
+            className="module-qty-btn"
+            onClick={() => changeQty(m.id, -1)}
+            disabled={buyQty === 0}
+            aria-label="Remover unidade"
+          >−</button>
+          <span className="module-qty-value">{buyQty}</span>
+          <button
+            className="module-qty-btn"
+            onClick={() => changeQty(m.id, 1)}
+            aria-label="Adicionar unidade"
+          >+</button>
+        </div>
+      </div>
+    );
+  };
+
+  const _nextPkgByLevel = nextPkgByLevel();
+
+  const renderLevelSection = (level: ModuleLevel, mods: Module[]) => {
+    const lid = level.id;
+    const levelSelectedQty = mods.reduce((s, m) => s + (quantities[m.id] ?? 0), 0);
+    const levelPkgs = packages.filter(p => p.level_id === lid).sort((a, b) => a.quantity - b.quantity);
+    const matchedPkg = packages.find(p => p.level_id === lid && p.quantity === levelSelectedQty);
+    const nextPkgForLevel = _nextPkgByLevel.get(lid);
+    return (
+      <div key={level.id} className="module-level-section">
+        <div className="module-level-header">
+          <h3 className="module-level-title">{level.name}</h3>
+          <span className="module-level-price">{fmt(level.price_brl)} / unidade</span>
+          {level.description && <p className="module-level-desc">{level.description}</p>}
+        </div>
+
+        <div className="module-cards-grid">
+          {mods.map(renderCard)}
+        </div>
+
+        {levelPkgs.length > 0 && (
+          <div className="level-pkgs-block">
+            <p className="level-pkgs-label">Pacotes com desconto neste nível</p>
+            <div className="module-level-packages">
+              {levelPkgs.map(p => {
+                const saving = (p.quantity * level.price_brl) - p.price_brl;
+                const isActive = matchedPkg?.id === p.id;
+                return (
+                  <span key={p.id} className={`level-pkg-chip${isActive ? ' active' : ''}`}>
+                    Ativando {p.quantity} módulos → {fmt(p.price_brl)}
+                    {saving > 0 && ` · Economize ${fmt(saving)}`}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {nextPkgForLevel && (
+          <div className="module-summary-hint level-hint">
+            💡 Adicione mais 1 módulo <strong>{level.name}</strong> e pague apenas <strong>{fmt(nextPkgForLevel.price_brl)}</strong> pelos {nextPkgForLevel.quantity} juntos!
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="modules-store">
-      <p className="store-subtitle" style={{ display: 'none' }}>
-        Módulos de valor fixo — adquira unidades e use cada uma em uma conexão.
-      </p>
+      {modulesByLevel.map(({ level, mods }) => renderLevelSection(level, mods))}
 
-      <div className="module-cards-grid">
-        {modules.map(m => {
-          const owned = ownedMap.get(m.id);
-          const buyQty = quantities[m.id] ?? 0;
-          return (
-            <div key={m.id} className={`module-store-card${buyQty > 0 ? ' module-card-selected' : ''}`}>
-              {owned && (
-                <div className="module-card-owned-badge">
-                  ✓ Já adquiriu {owned.quantity} · total {owned.available_qty > 1 ? 'disponíveis' : 'disponível'}: {owned.available_qty} 
-                </div>
-              )}
-              {m.image_svg && (
-                (m.image_svg.startsWith('http') || m.image_svg.startsWith('/'))
-                  ? <img className="module-card-img" src={m.image_svg} alt={m.name} />
-                  : <div className="module-card-img" dangerouslySetInnerHTML={{ __html: m.image_svg }} />
-              )}
-              <h3 className="module-card-name">{m.name}</h3>
-              {m.description && <p className="module-card-desc">{m.description}</p>}
-              <div className="module-card-price">
-                {m.price_brl != null ? fmt(m.price_brl) + ' / unidade' : 'Consulte pacotes'}
-              </div>
-              <div className="module-qty-stepper">
-                <button
-                  className="module-qty-btn"
-                  onClick={() => changeQty(m.id, -1)}
-                  disabled={buyQty === 0}
-                  aria-label="Remover unidade"
-                >−</button>
-                <span className="module-qty-value">{buyQty}</span>
-                <button
-                  className="module-qty-btn"
-                  onClick={() => changeQty(m.id, 1)}
-                  aria-label="Adicionar unidade"
-                >+</button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      {noLevelMods.length > 0 && (
+        <div className="module-level-section">
+          <div className="module-level-header">
+            <h3 className="module-level-title">Outros Módulos</h3>
+          </div>
+          <div className="module-cards-grid">
+            {noLevelMods.map(renderCard)}
+          </div>
+        </div>
+      )}
 
       {totalQty > 0 && (
         <div className="module-purchase-summary">
@@ -181,31 +274,9 @@ function ModulesTab() {
               <span className="module-summary-price">{fmt(currentPrice)}</span>
             )}
           </div>
-
-          {nextPkg && (
-            <div className="module-summary-hint">
-              💡 Adicione mais 1 módulo e pague apenas <strong>{fmt(nextPkg.price_brl)}</strong> pelos {nextPkg.quantity} juntos!
-            </div>
-          )}
-
           <button className="store-card-btn module-buy-btn" onClick={handleBuy}>
             Ativar {totalQty} módulo{totalQty > 1 ? 's' : ''} — {currentPrice != null ? fmt(currentPrice) : ''}
           </button>
-        </div>
-      )}
-
-      {packages.length > 0 && (
-        <div className="module-packages-info">
-          <h4>Pacotes disponíveis</h4>
-          <div className="module-packages-list">
-            {packages.map(p => (
-              <div key={p.id} className="module-package-item">
-                <span>{p.quantity} módulo{p.quantity > 1 ? 's' : ''}</span>
-                <span className="pkg-price">{fmt(p.price_brl)}</span>
-                {p.description && <span className="pkg-desc">{p.description}</span>}
-              </div>
-            ))}
-          </div>
         </div>
       )}
     </div>

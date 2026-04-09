@@ -46,6 +46,26 @@ class User(Base):
     children        = relationship("Child",       back_populates="user", cascade="all, delete")
 
 
+# --- Module Level ---
+class ModuleLevel(Base):
+    """Nível de um módulo fixo (Iniciante, Consciente, Mestre).
+    Define o preço único aplicado a todos os módulos desse nível.
+    """
+    __tablename__ = "module_levels"
+
+    id          = Column(Integer, primary_key=True, autoincrement=True)
+    slug        = Column(String(64), nullable=False, unique=True)
+    name        = Column(String(100), nullable=False)
+    description = Column(Text, nullable=True)
+    price_brl   = Column(Numeric(10, 2), nullable=False)
+    is_active   = Column(Boolean, nullable=False, default=True)
+    created_at  = Column(DateTime, nullable=False, default=_now_br)
+    updated_at  = Column(DateTime, nullable=False, default=_now_br, onupdate=_now_br)
+
+    modules  = relationship("Module", back_populates="level")
+    packages = relationship("ModulePackage", back_populates="level")
+
+
 # --- Module ---
 class Module(Base):
     __tablename__ = "modules"
@@ -61,14 +81,20 @@ class Module(Base):
     welcome_message = Column(Text, nullable=True)
     use_opening_prompt  = Column(Boolean, nullable=False, default=False)
     show_opening_prompt = Column(Boolean, nullable=False, default=False, server_default='0')
+    # Categoria de vida fora de Gaia que este módulo gera/persiste.
+    # Valores possíveis: 'lyra','pleiades','sirius','orion','arcturus','andromeda'
+    # None = módulo não gera vidas fora de Gaia (gaia+future são geradas automaticamente)
+    life_category = Column(String(20), nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
     module_type = Column(Enum('free', 'fixed'), nullable=False, default='free')
-    price_brl   = Column(Numeric(10, 2), nullable=True)
+    price_brl   = Column(Numeric(10, 2), nullable=True)   # legado; preço vem do nível
+    level_id    = Column(Integer, ForeignKey("module_levels.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime, nullable=False, default=_now_br)
 
     sessions     = relationship("ChatSession", back_populates="module")
     user_modules = relationship("UserModule", back_populates="module")
     flow_steps   = relationship("ModuleFlowStep", back_populates="module", cascade="all, delete-orphan", order_by="ModuleFlowStep.step_order")
+    level        = relationship("ModuleLevel", back_populates="modules")
 
 
 # --- Module Flow Steps ---
@@ -106,15 +132,21 @@ class ModuleFlowStep(Base):
 # --- Module Package (bundle de módulos fixos) ---
 class ModulePackage(Base):
     __tablename__ = "module_packages"
+    __table_args__ = (
+        UniqueConstraint("level_id", "quantity", name="uq_pkg_level_qty"),
+    )
 
     id          = Column(Integer, primary_key=True, autoincrement=True)
-    quantity    = Column(Integer, nullable=False, unique=True)
+    level_id    = Column(Integer, ForeignKey("module_levels.id", ondelete="CASCADE"), nullable=True)
+    quantity    = Column(Integer, nullable=False)
     price_brl   = Column(Numeric(10, 2), nullable=False)
     description = Column(String(255), nullable=True)
     is_active   = Column(Boolean, nullable=False, default=True)
     created_at  = Column(DateTime, nullable=False, default=_now_br)
     updated_at  = Column(DateTime, nullable=False, default=_now_br,
                          onupdate=_now_br)
+
+    level = relationship("ModuleLevel", back_populates="packages")
 
 
 # --- User Module (módulo fixo adquirido) ---
@@ -260,6 +292,34 @@ class Child(Base):
 
     user     = relationship("User",        back_populates="children")
     sessions = relationship("ChatSession", back_populates="child")
+
+
+# --- User Lives (vidas em Gaia e futuras persistidas por pessoa) ---
+class UserLife(Base):
+    """Vidas akáshicas em Gaia e no Futuro persistidas por usuário/filho.
+
+    São geradas uma única vez pelo agente e reutilizadas em qualquer
+    módulo subsequente, garantindo consistência narrativa.
+    """
+    __tablename__ = "user_lives"
+    __table_args__ = (
+        UniqueConstraint("user_id", "child_id", "life_category", "life_order",
+                         name="uq_user_life_order"),
+    )
+
+    id            = Column(Integer, primary_key=True, autoincrement=True)
+    user_id       = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
+                           nullable=False, index=True)
+    child_id      = Column(Integer, ForeignKey("children.id", ondelete="CASCADE"),
+                           nullable=True)
+    life_category = Column(String(20),  nullable=False)   # 'gaia' | 'future'
+    life_order    = Column(Integer,     nullable=False)    # 1, 2, 3
+    life_name     = Column(String(300), nullable=False)
+    life_era      = Column(String(300), nullable=True)
+    life_location = Column(String(300), nullable=True)
+    life_brief    = Column(String(500), nullable=True)     # frase curta
+    life_detail   = Column(Text,        nullable=True)     # parágrafo detalhado
+    created_at    = Column(DateTime, nullable=False, default=_now_br)
 
 
 # --- Site Settings (key-value config for the frontend-agent) ---

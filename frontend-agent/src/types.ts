@@ -66,6 +66,15 @@ export interface CoinChest {
   price_brl: number;
 }
 
+export interface ModuleLevel {
+  id: number;
+  slug: string;
+  name: string;
+  description?: string | null;
+  price_brl: number;
+  is_active: boolean;
+}
+
 export interface Module {
   id: number;
   slug: string;
@@ -79,11 +88,17 @@ export interface Module {
   system_prompt?: string | null;
   is_active?: boolean;
   module_type?: 'free' | 'fixed';
-  price_brl?: number | null;
+  level_id?: number | null;
+  level_name?: string | null;
+  level_slug?: string | null;
+  level_price_brl?: number | null;
+  price_brl?: number | null;   // igual a level_price_brl quando tem nível
 }
 
 export interface ModulePackage {
   id: number;
+  level_id: number | null;
+  level_name: string | null;
   quantity: number;
   price_brl: number;
   description: string | null;
