@@ -251,7 +251,7 @@ export default function ChatScreen() {
         ) : !cid ? (
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>✦</Text>
-            <Text style={styles.emptyTitle}>Bem-vindo à Jornada Akasha</Text>
+            <Text style={styles.emptyTitle}>Bem-vindo ao Mahamatrix</Text>
             <Text style={styles.emptySubtitle}>Selecione um módulo para iniciar sua jornada</Text>
             <TouchableOpacity style={styles.newChatBtn} onPress={() => setShowLocalPicker(true)}>
               <Text style={styles.newChatBtnText}>Iniciar nova conexão</Text>

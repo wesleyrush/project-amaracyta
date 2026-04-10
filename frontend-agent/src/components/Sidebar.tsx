@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { listSessions, deleteSession } from '../api/sessions';
 import { swal } from '../utils/swal';
+import AkashaLogo from './AkashaLogo';
 
 import type { SessionListItem } from '../types';
 
@@ -44,7 +45,7 @@ function CoinsConsumed({ coins }: { coins?: SessionListItem['coins_consumed'] })
 }
 
 export default function Sidebar({ onToggle }: { onToggle: () => void }) {
-  const { cid, setCid, sessions, setSessions, setShowModulePicker, user } = useApp();
+  const { cid, setCid, sessions, setSessions, setShowModulePicker, user, siteSettings } = useApp();
 
   const [showAll, setShowAll] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -101,23 +102,29 @@ export default function Sidebar({ onToggle }: { onToggle: () => void }) {
     <>
       <aside className="sidebar" id="sidebar">
         <header className="side-header">
-          <div className="side-header-left">
-            <div className="brand" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <strong style={{ display: 'block', margin: '0 0 0 56px', fontSize: 16 }}>Módulos iniciados</strong>
-            </div>
+          <div className="side-header-brand">
+            {siteSettings.logo_url
+              ? <img src={siteSettings.logo_url} className="side-brand-logo-img" alt="logo" />
+              : siteSettings.logo_svg
+                ? <span className="side-brand-logo-svg" dangerouslySetInnerHTML={{ __html: siteSettings.logo_svg }} />
+                : <AkashaLogo size={45} />
+            }
+            <span className="side-brand-title">{siteSettings.site_title || 'Mahamatrix'}</span>
           </div>
-          <div className="side-header-actions">
-            <button id="sidebarToggle" className="sidebar-toggle" onClick={onToggle} title="Abrir/fechar menu">☰</button>
-          </div>
+          <button id="sidebarToggle" className="sidebar-toggle" onClick={onToggle} title="Abrir/fechar menu">☰</button>
         </header>
 
-        <div className="side-actions">
-          <button id="newConvBtn" className="btn new-conv" onClick={newConversation}>
-            ✦ Clique aqui para iniciar um novo módulo
-          </button>
-        </div>
-
         <div className="conv-section">
+          <div className="conv-section-header">
+            <button className="conv-new-module-btn" onClick={newConversation}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              Iniciar novo módulo
+            </button>
+            <strong className="conv-section-title">Módulos iniciados</strong>
+          </div>
           <nav className="conv-list">
             <ul id="conversations">
               {visible.map(it => {
@@ -137,14 +144,19 @@ export default function Sidebar({ onToggle }: { onToggle: () => void }) {
                       }}
                       title={personName}
                     >
-                      <div className="conv-title">
-                        <span className="conv-person-name">
-                          <span className="conv-person-icon">👤</span> {personName}
-                        </span>
-                        <span className="conv-module-date">
-                          Módulo: {it.module_name || '—'}
-                          {it.updated_at ? ` · ${fmtShort(it.updated_at)}` : ''}
-                        </span>
+                      <div className="conv-avatar-circle" aria-hidden="true">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+                        </svg>
+                      </div>
+                      <div className="conv-info">
+                        <div className="conv-top-row">
+                          <span className="conv-wa-name">{personName}</span>
+                          <span className="conv-wa-time">{fmtShort(it.updated_at)}</span>
+                        </div>
+                        <div className="conv-bottom-row">
+                          <span className="conv-wa-subtitle">{it.module_name || '—'}</span>
+                        </div>
                       </div>
                     </a>
                     {!(it.flow_step && it.flow_step > 0) && (

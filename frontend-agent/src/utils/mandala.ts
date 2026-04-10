@@ -314,7 +314,7 @@ export function generateMandala(
 
   /* ── TÍTULO — Módulo ────────────────────────────────────────── */
   {
-    const label    = moduleName ? `✦  MÓDULO: ${moduleName.toUpperCase()}  ✦` : '✦  JORNADA AKASHA  ✦';
+    const label    = moduleName ? `✦  MÓDULO: ${moduleName.toUpperCase()}  ✦` : '✦  Mahamatrix  ✦';
     const fontSize = label.length > 38 ? 11 : 14;
     ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.font = `bold ${fontSize}px Arial, sans-serif`;

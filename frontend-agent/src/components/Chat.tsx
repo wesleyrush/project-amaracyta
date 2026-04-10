@@ -8,7 +8,6 @@ import { useSSE } from '../hooks/useSSE';
 import { renderMarkdown } from '../utils/markdown';
 import {
   renderOpening,
-  REINC_SUGGESTION_LABEL,
   REINC_PROMPT_HIDDEN
 } from '../utils/opening';
 import { generateMandala, downloadMandala } from '../utils/mandala';
@@ -48,7 +47,6 @@ export default function Chat(){
 
   const openingSentKey = cid ? `OPEN_SENT__${cid}` : '';
   const suggestShownKey = cid ? `REINC_SUG_SHOWN__${cid}` : '';
-  const forceTitleKey  = cid ? `FORCE_NOVA_CONVERSA__${cid}` : '';
   const hasUserMsgRef = useRef<boolean>(false);
   const [showSuggestion, setShowSuggestion] = useState(false);
 
@@ -271,7 +269,7 @@ export default function Chat(){
       mandalaDataUrl,
       logoUrl: `${window.location.origin}/logo_amaracyta.png`,
       logoSvg: undefined,
-      siteTitle: siteSettings?.site_title || 'Jornada Akasha',
+      siteTitle: siteSettings?.site_title || 'Mahamatrix',
     });
   }, [mandalaDataUrl, moduleName, user, sessionCreatedAt, msgs, flowStep, siteSettings]);
 
@@ -300,34 +298,6 @@ export default function Chat(){
       setMsgs(prev => prev.slice(0, -1));
     }
   }, [input, cid, busy, noBalance, setBalances, balances]);
-
-  const sendReincPrompt = useCallback(async () => {
-    if (!cid || busy) return;
-    setShowSuggestion(false);
-    sessionStorage.setItem(suggestShownKey, '1');
-
-    setMsgs(prev => {
-      if (waitingIdxRef.current !== null) return prev;
-      const next = [...prev, {
-        role: 'assistant',
-        content: 'Aguarde, iniciando a conexão com o portal e aguardando autorização do mestre'
-      } as Message];
-      waitingIdxRef.current = next.length - 1;
-      return next;
-    });
-
-    setBusy(true);
-    try {
-      await postMessage(cid, REINC_PROMPT_HIDDEN);
-      setStreaming(true);
-    } catch {
-      if (waitingIdxRef.current !== null) {
-        setMsgs(prev => prev.filter((_, i) => i !== waitingIdxRef.current!));
-        waitingIdxRef.current = null;
-      }
-      setBusy(false);
-    }
-  }, [cid, busy, suggestShownKey, forceTitleKey]);
 
   // Esc -> parar stream
   useEffect(() => {
@@ -418,10 +388,10 @@ export default function Chat(){
     return (
       <section className="chat-area chat-area--empty">
         <div className="chat-empty-state">
-          <div className="chat-empty-symbol">✦</div>
+          {/* <div className="chat-empty-symbol">✦</div>
           <h2 className="chat-empty-title">
-            {siteSettings?.site_title || 'Bem-vindo ao Portal'}
-          </h2>
+            {siteSettings?.site_title || 'Mahamatrix'}
+          </h2> */}
           <p className="chat-empty-body">
             Aqui começa a sua jornada. Cada conexão é uma porta para um novo
             nível de consciência e autoconhecimento.
@@ -430,7 +400,10 @@ export default function Chat(){
             className="chat-empty-cta"
             onClick={() => setShowModulePicker(true)}
           >
-            ✦ Clique aqui para iniciar um novo módulo
+             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg> Clique aqui para iniciar um novo módulo
           </button>
         </div>
       </section>
@@ -438,6 +411,7 @@ export default function Chat(){
   }
 
   return (
+    <>
     <section className="chat-area">
       <ul id="messages" className="messages">
         {msgs.map((m, i) => (
@@ -495,17 +469,10 @@ export default function Chat(){
           </button>
         </div>
       )}
+    </section>
 
       {cid && moduleType !== 'fixed' && <footer className="composer-wrap" ref={wrapRef}>
         <form className="composer" onSubmit={onSubmit}>
-          {showSuggestion && (
-            <div className="composer-suggestions">
-              <button type="button" className="chip" onClick={sendReincPrompt}>
-                {REINC_SUGGESTION_LABEL}
-              </button>
-            </div>
-          )}
-
           <div className="composer-bubble">
             <button
               type="button"
@@ -586,6 +553,6 @@ export default function Chat(){
           </div>
         </form>
       </footer>}
-    </section>
+    </>
   );
 }

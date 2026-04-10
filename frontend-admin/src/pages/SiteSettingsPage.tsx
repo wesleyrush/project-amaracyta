@@ -130,7 +130,7 @@ export default function SiteSettingsPage() {
             type="text"
             value={form.site_title}
             onChange={e => setForm(f => ({ ...f, site_title: e.target.value }))}
-            placeholder="Ex.: JORNADA AKASHA"
+            placeholder="Ex.: Mahamatrix"
           />
           <small className="form-hint">Exibido ao lado da logo no topo do agente.</small>
         </div>

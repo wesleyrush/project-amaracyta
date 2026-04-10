@@ -2,8 +2,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import AkashaLogo from './AkashaLogo';
 import { listModules } from '../api/modules';
+import AkashaLogo from './AkashaLogo';
 import type { Module } from '../types';
 import { doLogout } from '../api/auth';
 import { useTheme } from '../hooks/useTheme';
@@ -14,6 +14,18 @@ function initialsFromName(name?: string | null) {
   const [a, b] = t.split(/\s+/);
   return ((a?.[0] || '') + (b?.[0] || a?.[1] || '')).toUpperCase();
 }
+
+function fmtSessionDate(dt: string | null | undefined): string {
+  if (!dt) return '';
+  const d = new Date(dt);
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+const PersonAvatarIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+  </svg>
+);
 
 interface TopbarProps {
   forceDefault?: boolean;
@@ -58,33 +70,41 @@ export default function Topbar({ forceDefault, sidebarCollapsed }: TopbarProps) 
 
   return (
     <>
+      {/* Topbar de brand — visível apenas no mobile */}
+      <header className="mobile-brand-bar">
+        {siteSettings.logo_url
+          ? <img src={siteSettings.logo_url} className="mobile-brand-logo" alt="logo" />
+          : siteSettings.logo_svg
+            ? <span className="mobile-brand-logo-svg" dangerouslySetInnerHTML={{ __html: siteSettings.logo_svg }} />
+            : <AkashaLogo size={40} />
+        }
+        <span className="mobile-brand-title">{siteSettings.site_title || 'JORNADA AKASHA'}</span>
+      </header>
+
       <header className="topbar" style={sidebarCollapsed ? { paddingLeft: 70 } : undefined}>
         <div className="topbar-title-area">
-          {!forceDefault && currentSession?.module_id ? (() => {
-            const mod = moduleMap[currentSession.module_id!];
+
+          {!forceDefault && currentSession ? (() => {
+            const personName = currentSession.child_id
+              ? (currentSession.child_name || 'Filho(a)')
+              : (user?.full_name || 'Eu');
             return (
-              <>
-                {mod?.image_svg && (
-                  (mod.image_svg.startsWith('http') || mod.image_svg.startsWith('/'))
-                    ? <img className="topbar-module-icon" src={mod.image_svg} alt={mod.name} style={{ padding: '13px 0 5px 0', height: 36, objectFit: 'contain' }} />
-                    : <span className="topbar-module-icon" style={{padding:'13px 0 5px 0'}} dangerouslySetInnerHTML={{ __html: mod.image_svg }} />
-                )}
-                <span className="topbar-conv-title"  style={{padding:'13px 0 5px 0'}}>
-                  Módulo: {currentSession.module_name ?? currentSession.title}
-                </span>
-              </>
+              <div className="chat-contact-header">
+                <div className="chat-contact-avatar">
+                  <PersonAvatarIcon />
+                </div>
+                <div className="chat-contact-info">
+                  <span className="chat-contact-name">{personName}</span>
+                  {currentSession.module_name && (
+                    <span className="chat-contact-meta">
+                      {currentSession.module_name}
+                      {currentSession.created_at ? ` · ${fmtSessionDate(currentSession.created_at)}` : ''}
+                    </span>
+                  )}
+                </div>
+              </div>
             );
-          })() : (
-            <>
-              {siteSettings.logo_url
-                ? <img src={siteSettings.logo_url} className="topbar-logo-img" alt="logo" />
-                : siteSettings.logo_svg
-                  ? <span className="topbar-module-icon" dangerouslySetInnerHTML={{ __html: siteSettings.logo_svg }} />
-                  : <AkashaLogo size={48} />
-              }
-              <strong className="brand-title">{siteSettings.site_title || 'JORNADA AKASHA'}</strong>
-            </>
-          )}
+          })() : null}
         </div>
 
         <div className="topbar-right">

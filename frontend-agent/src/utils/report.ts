@@ -25,7 +25,7 @@ export function openPdfReport(opts: ReportOptions): void {
     moduleName, userName, userEmail, birthDate,
     consultationDate, messages, flowStep = 0,
     mandalaDataUrl,
-    logoUrl, logoSvg, siteTitle = 'Jornada Akasha',
+    logoUrl, logoSvg, siteTitle = 'Mahamatrix',
   } = opts;
 
   // Pula welcome (1) + bubbles de avanço de fluxo (flowStep)

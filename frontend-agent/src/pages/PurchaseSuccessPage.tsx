@@ -151,10 +151,10 @@ export default function PurchaseSuccessPage() {
 
         <div className="success-actions">
           <button className="success-btn-primary" onClick={() => navigate('/')}>
-            Voltar ao chat
+            Voltar conexões
           </button>
           <button className="success-btn-secondary" onClick={() => navigate('/store')}>
-            Comprar mais moedas
+            Ativar mais módulos
           </button>
         </div>
       </div>
